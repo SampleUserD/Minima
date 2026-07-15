@@ -1,0 +1,1 @@
+export type Directory = Record<string, any>

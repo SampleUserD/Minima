@@ -1,0 +1,1 @@
+export type AsTuple<T> = T extends any[] ? T : [T]

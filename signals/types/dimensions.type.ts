@@ -1,0 +1,1 @@
+export type Dimensions<T, N extends number, A extends T[] = []> = A['length'] extends N ? [] : [T, ...Dimensions<T, N, [...A, T]>]
