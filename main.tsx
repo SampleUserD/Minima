@@ -3,7 +3,7 @@ import minima from "@/index"
 
 const App = () => {
   const count = new minima.Batch(0)
-  const list = new minima.ArrayOf([])
+  const list = new minima.ArrayOf<number>([])
   const increment = v => v + 1
 
   console.time('Update state')
@@ -20,7 +20,9 @@ const App = () => {
 
   console.timeEnd('Update state')
 
-  list.Append(...new Array(10000).fill(0).map((_, i) => i))
+  const numbers: number[] = new Array<number>(10000).fill(0).map((_, i) => i)
+
+  list.Append(...numbers)
 
   return (
     <div class={count}>

@@ -85,6 +85,8 @@ export class DOMInterpretator implements Interpretator {
   }
 
   private HydrateList(node: VNode, element: HTMLElement): void {
+    const children = Array.from(element.children)
+
     const each = node.Properties?.each as BatchStatefulArrayOf<any>
     const item = node.Properties?.item
 
@@ -99,6 +101,7 @@ export class DOMInterpretator implements Interpretator {
       this.DeepHydrate(item, element)
 
       fragment.appendChild(element)
+      children.push(element)
     })
 
     element.appendChild(fragment)
@@ -108,6 +111,11 @@ export class DOMInterpretator implements Interpretator {
       const to = element.children[event.To]
 
       const placeholder = document.createElement('swap-placeholder')
+
+      const temporary = children[event.To]
+
+      children[event.To] = children[event.From] as Element
+      children[event.From] = temporary as Element
 
       if (event.From < event.To) {
         element.insertBefore(placeholder, from)
@@ -133,6 +141,8 @@ export class DOMInterpretator implements Interpretator {
 
         fragment.appendChild(child)
 
+        children.push(child)
+
         this.DeepHydrate(node, child)
       })
 
@@ -141,7 +151,7 @@ export class DOMInterpretator implements Interpretator {
 
     each?.Removed.Listen(event => {
       event.Value.forEach((value, index) => {
-        const child = element.children[index] as any
+        const child = children[index] as any
 
         this.Delete(child.minima)
       })
@@ -198,6 +208,8 @@ export class DOMInterpretator implements Interpretator {
     if (typeof node.Type === 'function') {
       return this.Create(node.Type({ Properties: node.Properties }))
     }
+
+    throw new Error(`No such type as ${node.Type}`)
   }
 
   public constructor(private _root: HTMLElement) { }

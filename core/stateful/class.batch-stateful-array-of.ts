@@ -15,8 +15,8 @@ export class BatchStatefulArrayOf<T> extends BatchStateful<Stateful<T>[]> {
 
   public Append(...value: T[]): void {
     const array = this.Get()
-    const indexes = []
-    const values = []
+    const indexes: number[] = []
+    const values: Stateful<T>[] = []
 
     value.forEach(r => {
       const stateful = new Stateful<T>(r)
@@ -54,13 +54,15 @@ export class BatchStatefulArrayOf<T> extends BatchStateful<Stateful<T>[]> {
 
   public Clear(): void {
     const array = this.Get()
-    const indexes = []
+    const indexes: number[] = []
 
     for (let index = 0; index < array.length; index++) {
       indexes.push(index)
     }
 
     this.Removed.Emit({ Value: array, Indexes: indexes })
+
+    this.Set(() => [])
   }
 
   public Pop(): Stateful<T> {
@@ -69,7 +71,7 @@ export class BatchStatefulArrayOf<T> extends BatchStateful<Stateful<T>[]> {
 
     this.Notify()
 
-    return stateful
+    return stateful!
   }
 
   public At(index: number): Stateful<T> {

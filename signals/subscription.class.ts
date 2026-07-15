@@ -1,4 +1,4 @@
-import { Duration, Time, Listener } from "minima/signals/@types"
+import { Duration, Time, Listener } from "./@types"
 
 export type Descriptor = Subscription<any>
 
