@@ -85,14 +85,14 @@ export class DOMInterpretator implements Interpretator {
   }
 
   private HydrateList(node: VNode, element: HTMLElement): void {
-    const children = Array.from(element.children)
+    let children = Array.from(element.children)
 
     const each = node.Properties?.each as BatchStatefulArrayOf<any>
     const item = node.Properties?.item
 
     let list = each?.Get() || []
 
-    const items = list.map(r => item(r))
+    const items = list.map((r, i) => item(r, i))
     const fragment = document.createDocumentFragment()
 
     items.forEach(item => {
@@ -135,8 +135,8 @@ export class DOMInterpretator implements Interpretator {
     each?.Added.Listen(event => {
       const fragment = document.createDocumentFragment()
 
-      event.Value.forEach(value => {
-        const node = item(value)
+      event.Value.forEach((value, index) => {
+        const node = item(value, index)
         const child = this.Create(node)
 
         fragment.appendChild(child)
@@ -150,11 +150,21 @@ export class DOMInterpretator implements Interpretator {
     })
 
     each?.Removed.Listen(event => {
-      event.Value.forEach((value, index) => {
+      event.Indexes.forEach(index => {
         const child = children[index] as any
+
+        children.splice(index, 1)
 
         this.Delete(child.minima)
       })
+    })
+
+    each?.Cleared.Listen(event => {
+      for (const child of children) {
+        this.Delete((child as any).minima)
+      }
+
+      children = []
     })
   }
 

@@ -12,6 +12,14 @@ export class Stateful<T> {
     return this._value
   }
 
+  public If<U>(predicate: (value: T) => boolean, then: (value: T) => U, otherwise: (value: T) => U, factory: (value: U) => Stateful<U> = v => new Stateful(v)): Stateful<U> {
+    const derived = factory(predicate(this._value) ? then(this._value) : otherwise(this._value))
+
+    this.Subscribe(value => derived.Set(() => predicate(value) ? then(value) : otherwise(value)))
+
+    return derived
+  }
+
   public Set(fabric: StatefulSetter<T>): void {
     this._value = fabric(this._value)
     this.Notify()
