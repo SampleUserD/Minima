@@ -115,46 +115,18 @@ export class DOMInterpretator implements Interpretator {
 
     element.appendChild(fragment)
 
-    each?.Subscribe(event => {
-      const children = element.children
-      const count = children.length
-
-      if (count === 0) {
-        return each.DirectAppend(...event)
-      }
-
-      for (let index = 0; index < event.length; index++) {
-        const current_node = item(event[index], index + count)
-        const current_element = template.cloneNode(true) as HTMLElement
-
-        this.PatchDOM(event[index], current_element)
-        this.PatchDOM(current_node, current_element)
-        this.DeepHydrate(current_node, current_element)
-
-        element.replaceChild(current_element, children[index])
-      }
-    })
-
     each?.Swapped.Listen(event => {
       const children = element.children
       const from = children[event.From] as HTMLElement
       const to = children[event.To] as HTMLElement
 
-      const placeholder = document.createElement('swap-placeholder')
+      this.DeepHydrate(node.Children[event.To] as VNode, from)
+      this.DeepHydrate(node.Children[event.From] as VNode, to)
 
-      if (event.From < event.To) {
-        element.insertBefore(placeholder, from)
-        element.insertBefore(from, to)
-        element.insertBefore(to, placeholder)
+      const temporary = node.Children[event.To]
 
-        element.removeChild(placeholder)
-      } else {
-        element.insertBefore(placeholder, to)
-        element.insertBefore(to, from)
-        element.insertBefore(from, placeholder)
-
-        element.removeChild(placeholder)
-      }
+      node.Children[event.To] = node.Children[event.From]
+      node.Children[event.From] = temporary
     })
 
     each?.Added.Listen(event => {
@@ -169,6 +141,8 @@ export class DOMInterpretator implements Interpretator {
       for (let index = 0; index < event.Value.length; index++) {
         const current_node = item(event.Value[index], index + count)
         const current_element = template.cloneNode(true) as HTMLElement
+
+        node.Children.push(current_node)
 
         this.PatchDOM(event.Value[index], current_element)
         this.PatchDOM(current_node, current_element)
@@ -191,6 +165,7 @@ export class DOMInterpretator implements Interpretator {
 
     each?.Cleared.Listen(event => {
       element.innerHTML = String()
+      node.Children = []
     })
   }
 

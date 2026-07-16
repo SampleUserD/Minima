@@ -17,26 +17,19 @@ export class BatchStatefulArrayOf<T> extends BatchStateful<Stateful<T>[]> {
   }
 
   public Append(...value: T[]): void {
-    this.DirectAppend(...value.map(v => new Stateful<T>(v)))
-  }
-
-  public DirectAppend(...value: Stateful<T>[]): void {
     const array = this.Get()
     const indexes: number[] = []
     const values: Stateful<T>[] = []
 
     value.forEach(r => {
-      const index = array.push(r)
+      const stateful = new Stateful<T>(r)
+      const index = array.push(stateful)
 
       indexes.push(index)
-      values.push(r)
+      values.push(stateful)
     })
 
     this.Added.Emit({ Value: values, Indexes: indexes })
-  }
-
-  public Replace(...value: T[]): void {
-    this.Set(() => value.map(r => new Stateful<T>(r)))
   }
 
   public Remove(index: number): void {
