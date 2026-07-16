@@ -84,13 +84,11 @@ function App() {
   const counter = new minima.Batch<number>(0)
 
   function create1000th() {
-    rows.Clear()
-    rows.Append(...buildData(1000))
+    rows.Replace(...buildData(1000))
   }
 
   function create10000th() {
-    rows.Clear()
-    rows.Append(...buildData(10000))
+    rows.Replace(...buildData(1000))
   }
 
   function append1000th() {

@@ -115,6 +115,26 @@ export class DOMInterpretator implements Interpretator {
 
     element.appendChild(fragment)
 
+    each?.Subscribe(event => {
+      const children = element.children
+      const count = children.length
+
+      if (count === 0) {
+        return each.DirectAppend(...event)
+      }
+
+      for (let index = 0; index < event.length; index++) {
+        const current_node = item(event[index], index + count)
+        const current_element = template.cloneNode(true) as HTMLElement
+
+        this.PatchDOM(event[index], current_element)
+        this.PatchDOM(current_node, current_element)
+        this.DeepHydrate(current_node, current_element)
+
+        element.replaceChild(current_element, children[index])
+      }
+    })
+
     each?.Swapped.Listen(event => {
       const children = element.children
       const from = children[event.From] as HTMLElement
@@ -165,6 +185,8 @@ export class DOMInterpretator implements Interpretator {
       const dom = this.GetDOMFrom(value)
 
       dom.remove()
+
+      console.log('After remove, last 10 IDs:', Array.from(element.children).slice(-10).map(el => el.textContent));
     })
 
     each?.Cleared.Listen(event => {
