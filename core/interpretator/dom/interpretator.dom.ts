@@ -145,7 +145,7 @@ export class DOMInterpretator implements Interpretator {
       this.PatchDOM(event.Value[0], first_element)
       this.PatchDOM(first, first_element)
 
-      fragment.insertBefore(first_element, fragment.firstChild)
+      fragment.appendChild(first_element)
 
       for (let index = 1; index < event.Value.length; index++) {
         const current_node = item(event.Value[index], index + count)
@@ -155,10 +155,10 @@ export class DOMInterpretator implements Interpretator {
         this.PatchDOM(current_node, current_element)
         this.DeepHydrate(current_node, current_element)
 
-        fragment.insertBefore(current_element, fragment.firstChild)
+        fragment.appendChild(current_element)
       }
 
-      element.insertBefore(fragment, element.firstChild)
+      element.appendChild(fragment)
     })
 
     each?.Removed.Listen(event => {
