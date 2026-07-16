@@ -3,7 +3,7 @@ import { Stateful, StatefulSetter } from "@/core/stateful/class.stateful"
 import { Signal } from "@/signals/signal.class"
 
 export class BatchStatefulArrayOf<T> extends BatchStateful<Stateful<T>[]> {
-  private _removes: number = 0
+  public static BLOCK_SIZE = 1000
 
   public readonly Added: Signal<{ Value: Stateful<T>[], Indexes: number[] }> = new Signal()
   public readonly Removed: Signal<{ Value: Stateful<T>[], Indexes: number[] }> = new Signal()
@@ -36,9 +36,7 @@ export class BatchStatefulArrayOf<T> extends BatchStateful<Stateful<T>[]> {
     const array = this.Get()
     const remove = array.splice(index, 1)!
 
-    this.Removed.Emit({ Value: remove, Indexes: [index - this._removes] })
-
-    this._removes++
+    this.Removed.Emit({ Value: remove, Indexes: [index] })
   }
 
   public Update(index: number, setter: StatefulSetter<T>) {
@@ -61,8 +59,6 @@ export class BatchStatefulArrayOf<T> extends BatchStateful<Stateful<T>[]> {
     this.Set(() => [])
 
     this.Cleared.Emit(true)
-
-    this._removes = 0
   }
 
   public Pop(): Stateful<T> {
@@ -85,6 +81,7 @@ export class BatchStatefulArrayOf<T> extends BatchStateful<Stateful<T>[]> {
     this.Added.Clear()
     this.Removed.Clear()
     this.Swapped.Clear()
+    this.Cleared.Clear()
   }
 
   public get Length(): number {

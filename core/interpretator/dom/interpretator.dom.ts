@@ -4,7 +4,6 @@ import { BatchStatefulArrayOf } from "@/core/stateful/class.batch-stateful-array
 import { Stateful } from "@/core/stateful/class.stateful"
 
 export class DOMInterpretator implements Interpretator {
-  private _nodes: WeakMap<VNode, HTMLElement> = new WeakMap()
   private _events: Set<string> = new Set()
 
   private EnsureGlobalListener(name: string): void {
@@ -90,7 +89,7 @@ export class DOMInterpretator implements Interpretator {
     const each = node.Properties?.each as BatchStatefulArrayOf<any>
     const item = node.Properties?.item
 
-    let list = each?.Get() || []
+    const list = each?.Get() || []
 
     const items = list.map((r, i) => item(r, i))
     const fragment = document.createDocumentFragment()
@@ -134,36 +133,45 @@ export class DOMInterpretator implements Interpretator {
 
     each?.Added.Listen(event => {
       const fragment = document.createDocumentFragment()
+      const oldlength = children.length
 
-      event.Value.forEach((value, index) => {
-        const node = item(value, index)
-        const child = this.Create(node)
+      const first_node = item(event.Value[0], oldlength)
+      const first_child = this.Create(first_node) as any
 
-        fragment.appendChild(child)
+      first_child.minima = first_node
 
-        children.push(child)
+      fragment.insertBefore(first_child, fragment.firstChild)
 
+      for (let index = 1; index < event.Value.length; index++) {
+        const node = item(event.Value[index], index + oldlength)
+        const child = first_child.cloneNode(true) as any
+
+        child.minima = node
+
+        this.ApplyEvents(node, child)
         this.DeepHydrate(node, child)
-      })
 
-      element.appendChild(fragment)
+        fragment.insertBefore(child, fragment.firstChild)
+
+        children.unshift(child)
+      }
+
+      element.insertBefore(fragment, element.firstChild)
     })
 
     each?.Removed.Listen(event => {
-      event.Indexes.forEach(index => {
-        const child = children[index] as any
+      const index = event.Indexes[0]
+      const real_index = each.Length - index
 
-        children.splice(index, 1)
+      const child = children[real_index] as HTMLElement
 
-        this.Delete(child.minima)
-      })
+      child.remove()
+
+      children.splice(real_index, 1)
     })
 
     each?.Cleared.Listen(event => {
-      for (const child of children) {
-        this.Delete((child as any).minima)
-      }
-
+      element.innerHTML = String()
       children = []
     })
   }
@@ -177,12 +185,15 @@ export class DOMInterpretator implements Interpretator {
   private DeepHydrate(node: VNode, element: HTMLElement): void {
     this.Hydrate(node, element)
 
-    for (const child of node.Children) {
+    for (let index = 0; index < node.Children.length; index++) {
+      const child = node.Children[index]
+      const child_element = element.children[index] as HTMLElement
+
       if (typeof child !== 'object' || child instanceof Stateful) {
         continue
       }
 
-      this.Hydrate(child as VNode, this._nodes.get(child as VNode)!)
+      this.DeepHydrate(child as VNode, child_element)
     }
   }
 
@@ -193,7 +204,6 @@ export class DOMInterpretator implements Interpretator {
 
       element.minima = node
 
-      this._nodes.set(node, element)
       this.Hydrate(node, element)
       this.ApplyEvents(node, element)
       this.ApplyAttributes(node, element)
@@ -228,8 +238,5 @@ export class DOMInterpretator implements Interpretator {
     this._root.appendChild(this.Create(node))
   }
 
-  public Delete(node: VNode): void {
-    this._nodes.get(node)?.remove()
-    this._nodes.delete(node)
-  }
+  public Delete(node: VNode): void { }
 }
