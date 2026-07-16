@@ -124,7 +124,9 @@ function App() {
   }
 
   function delete_row(id) {
-    rows.Remove(id)
+    const idx = rows.Get().findIndex(d => d.Get().id.Get() === id)
+
+    rows.Remove(idx)
   }
 
   return (
@@ -151,10 +153,10 @@ function App() {
           each={rows}
           item={
             (row: Batch<{ id: Batch<number>, label: Batch<string> }>, index: number) => (
-              <tr class={selected.If(v => v === index, v => "danger", v => "")} key={row.Get().id}>
+              <tr class={selected.If(v => v === index, v => "danger", v => "")} data-id={row.Get().id.Get()}>
                 <td class="col-md-1">{row.Get().id}</td>
                 <td class="col-md-4"><a onclick={() => select_row(index)}>{row.Get().label}</a></td>
-                <td class="col-md-1"><a onclick={() => delete_row(index)}><span class="glyphicon glyphicon-remove" aria-hidden="true"></span></a></td>
+                <td class="col-md-1"><a onclick={() => delete_row(row.Get().id.Get())}><span class="glyphicon glyphicon-remove" aria-hidden="true"></span></a></td>
                 <td class="col-md-6"></td>
               </tr>
             )

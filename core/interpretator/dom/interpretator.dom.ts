@@ -6,6 +6,14 @@ import { Stateful } from "@/core/stateful/class.stateful"
 export class DOMInterpretator implements Interpretator {
   private _events: Set<string> = new Set()
 
+  private PatchDOM(object: any, element: HTMLElement): void {
+    object.dom = element
+  }
+
+  private GetDOMFrom(object: any): HTMLElement {
+    return object.dom
+  }
+
   private EnsureGlobalListener(name: string): void {
     if (this._events.has(name)) {
       return
@@ -84,37 +92,33 @@ export class DOMInterpretator implements Interpretator {
   }
 
   private HydrateList(node: VNode, element: HTMLElement): void {
-    let children = Array.from(element.children)
-
     const each = node.Properties?.each as BatchStatefulArrayOf<any>
     const item = node.Properties?.item
 
     const list = each?.Get() || []
 
-    const items = list.map((r, i) => item(r, i))
     const fragment = document.createDocumentFragment()
 
-    items.forEach(item => {
-      const element = this.Create(item)
+    list.forEach((r: any, i) => {
+      const tr = item(r, i)
+      const element = this.Create(tr)
 
-      this.DeepHydrate(item, element)
+      this.PatchDOM(r, element)
+      this.PatchDOM(tr, element)
+
+      this.DeepHydrate(tr, element)
 
       fragment.appendChild(element)
-      children.push(element)
     })
 
     element.appendChild(fragment)
 
     each?.Swapped.Listen(event => {
-      const from = element.children[event.From]
-      const to = element.children[event.To]
+      const children = element.children
+      const from = children[event.From] as HTMLElement
+      const to = children[event.To] as HTMLElement
 
       const placeholder = document.createElement('swap-placeholder')
-
-      const temporary = children[event.To]
-
-      children[event.To] = children[event.From] as Element
-      children[event.From] = temporary as Element
 
       if (event.From < event.To) {
         element.insertBefore(placeholder, from)
@@ -133,41 +137,39 @@ export class DOMInterpretator implements Interpretator {
 
     each?.Added.Listen(event => {
       const fragment = document.createDocumentFragment()
-      const oldlength = children.length
+      const count = element.children.length
 
-      const first_node = item(event.Value[0], oldlength)
-      const first_child = this.Create(first_node)
+      const first = item(event.Value[0], count)
+      const first_element = this.Create(first)
 
-      children.unshift(first_child)
+      this.PatchDOM(event.Value[0], first_element)
+      this.PatchDOM(first, first_element)
 
-      fragment.insertBefore(first_child, fragment.firstChild)
+      fragment.insertBefore(first_element, fragment.firstChild)
 
       for (let index = 1; index < event.Value.length; index++) {
-        const node = item(event.Value[index], index + oldlength)
-        const child = first_child.cloneNode(true) as HTMLElement
+        const current_node = item(event.Value[index], index + count)
+        const current_element = first_element.cloneNode(true) as HTMLElement
 
-        this.DeepHydrate(node, child)
+        this.PatchDOM(event.Value[index], current_element)
+        this.PatchDOM(current_node, current_element)
+        this.DeepHydrate(current_node, current_element)
 
-        fragment.insertBefore(child, fragment.firstChild)
-        children.unshift(child)
+        fragment.insertBefore(current_element, fragment.firstChild)
       }
 
       element.insertBefore(fragment, element.firstChild)
     })
 
     each?.Removed.Listen(event => {
-      const index = event.Indexes[0]
-      const real_index = each.Length - index
+      const value = event.Value[0]
+      const dom = this.GetDOMFrom(value)
 
-      const child = children[real_index] as HTMLElement
-
-      element.removeChild(child)
-      children.splice(real_index, 1)
+      dom.remove()
     })
 
     each?.Cleared.Listen(event => {
       element.innerHTML = String()
-      children = []
     })
   }
 
@@ -182,14 +184,14 @@ export class DOMInterpretator implements Interpretator {
     this.ApplyEvents(node, element)
 
     for (let index = 0; index < node.Children.length; index++) {
-      const child = node.Children[index]
-      const child_element = element.children[index] as HTMLElement
+      const child = node.Children[index] as VNode
+      const possible_child = element.children[index] as HTMLElement
 
       if (typeof child !== 'object' || child instanceof Stateful) {
         continue
       }
 
-      this.DeepHydrate(child as VNode, child_element)
+      this.DeepHydrate(child, possible_child)
     }
   }
 
