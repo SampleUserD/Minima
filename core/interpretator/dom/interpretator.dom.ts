@@ -99,6 +99,8 @@ export class DOMInterpretator implements Interpretator {
 
     const fragment = document.createDocumentFragment()
 
+    let template: HTMLElement | null = null
+
     list.forEach((r: any, i) => {
       const tr = item(r, i)
       const element = this.Create(tr)
@@ -139,17 +141,14 @@ export class DOMInterpretator implements Interpretator {
       const fragment = document.createDocumentFragment()
       const count = element.children.length
 
-      const first = item(event.Value[0], count)
-      const first_element = this.Create(first)
+      if (template == null) {
+        const first = item(event.Value[0], count)
+        template = this.Create(first)
+      }
 
-      this.PatchDOM(event.Value[0], first_element)
-      this.PatchDOM(first, first_element)
-
-      fragment.appendChild(first_element)
-
-      for (let index = 1; index < event.Value.length; index++) {
+      for (let index = 0; index < event.Value.length; index++) {
         const current_node = item(event.Value[index], index + count)
-        const current_element = first_element.cloneNode(true) as HTMLElement
+        const current_element = template.cloneNode(true) as HTMLElement
 
         this.PatchDOM(event.Value[index], current_element)
         this.PatchDOM(current_node, current_element)
