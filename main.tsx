@@ -63,7 +63,7 @@ function buildData(count = 1000) {
     'keyboard'
   ]
   const data: { id: Batch<number>, label: Batch<string> }[] = []
-  for (let i = 0; i < count; i++)
+  for (let i = 0; i < count; i++) {
     data.push({
       id: new minima.Batch(ID++),
       label: new minima.Batch(
@@ -74,6 +74,7 @@ function buildData(count = 1000) {
         nouns[_random(nouns.length)]
       )
     })
+  }
   return data
 }
 
@@ -83,10 +84,14 @@ function App() {
   const counter = new minima.Batch<number>(0)
 
   function create1000th() {
+    ID = 1
+    rows.Clear()
     rows.Append(...buildData(1000))
   }
 
   function create10000th() {
+    ID = 1
+    rows.Clear()
     rows.Append(...buildData(10000))
   }
 
@@ -121,16 +126,6 @@ function App() {
   function delete_row(id) {
     rows.Remove(id)
   }
-
-  const increment = v => v + 1
-
-  console.time('Update (10 billion)')
-
-  for (let i = 0; i < 1e8; i++) {
-    counter.Set(increment)
-  }
-
-  console.timeEnd('Update (10 billion)')
 
   return (
     <div class="container">

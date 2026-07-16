@@ -136,23 +136,19 @@ export class DOMInterpretator implements Interpretator {
       const oldlength = children.length
 
       const first_node = item(event.Value[0], oldlength)
-      const first_child = this.Create(first_node) as any
+      const first_child = this.Create(first_node)
 
-      first_child.minima = first_node
+      children.unshift(first_child)
 
       fragment.insertBefore(first_child, fragment.firstChild)
 
       for (let index = 1; index < event.Value.length; index++) {
         const node = item(event.Value[index], index + oldlength)
-        const child = first_child.cloneNode(true) as any
+        const child = first_child.cloneNode(true) as HTMLElement
 
-        child.minima = node
-
-        this.ApplyEvents(node, child)
         this.DeepHydrate(node, child)
 
         fragment.insertBefore(child, fragment.firstChild)
-
         children.unshift(child)
       }
 
@@ -165,8 +161,7 @@ export class DOMInterpretator implements Interpretator {
 
       const child = children[real_index] as HTMLElement
 
-      child.remove()
-
+      element.removeChild(child)
       children.splice(real_index, 1)
     })
 
@@ -184,6 +179,7 @@ export class DOMInterpretator implements Interpretator {
 
   private DeepHydrate(node: VNode, element: HTMLElement): void {
     this.Hydrate(node, element)
+    this.ApplyEvents(node, element)
 
     for (let index = 0; index < node.Children.length; index++) {
       const child = node.Children[index]
@@ -201,12 +197,7 @@ export class DOMInterpretator implements Interpretator {
     if (typeof node.Type === 'string') {
       const element = document.createElement(node.Type) as any
       const fragment = document.createDocumentFragment()
-
-      element.minima = node
-
-      this.Hydrate(node, element)
-      this.ApplyEvents(node, element)
-      this.ApplyAttributes(node, element)
+      const contents: string[] = []
 
       for (const child of node.Children) {
         if (typeof child === 'object') {
@@ -214,11 +205,15 @@ export class DOMInterpretator implements Interpretator {
             fragment.appendChild(this.Create(child as VNode))
           }
         } else {
-          const text = document.createTextNode(child.toString())
-
-          fragment.appendChild(text)
+          contents.push(child.toString())
         }
       }
+
+      element.textContent = contents.join(String())
+
+      this.Hydrate(node, element)
+      this.ApplyEvents(node, element)
+      this.ApplyAttributes(node, element)
 
       element.appendChild(fragment)
 
