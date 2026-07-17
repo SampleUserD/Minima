@@ -3,17 +3,26 @@ import { Stateful, StatefulSetter } from "@/core/stateful/class.stateful"
 import { Signal } from "@/signals/signal.class"
 
 export class BatchStatefulArrayOf<T> extends BatchStateful<Stateful<T>[]> {
-  public static BLOCK_SIZE = 1000
-
   public readonly Added: Signal<{ Value: Stateful<T>[], Indexes: number[] }> = new Signal()
   public readonly Removed: Signal<{ Value: Stateful<T>[], Indexes: number[] }> = new Signal()
   public readonly Swapped: Signal<{ From: number, To: number }> = new Signal()
-  public readonly Cleared: Signal<boolean> = new Signal()
+  public readonly Cleared: Signal<{ Value: Stateful<T>[] }> = new Signal()
+  public readonly Replaced: Signal<{ Value: Stateful<T>[] }> = new Signal()
 
   public constructor(value: T[]) {
     super([])
 
     this.Append(...value)
+  }
+
+  public Replace(...value: T[]): void {
+    const array = this.Get()
+
+    value.forEach((replace, index) => {
+      array[index] = new Stateful<T>(replace)
+    })
+
+    this.Replaced.Emit({ Value: array })
   }
 
   public Append(...value: T[]): void {
@@ -56,9 +65,11 @@ export class BatchStatefulArrayOf<T> extends BatchStateful<Stateful<T>[]> {
   }
 
   public Clear(): void {
+    const value = this.Value
+
     this.Set(() => [])
 
-    this.Cleared.Emit(true)
+    this.Cleared.Emit({ Value: value })
   }
 
   public Pop(): Stateful<T> {
@@ -82,6 +93,7 @@ export class BatchStatefulArrayOf<T> extends BatchStateful<Stateful<T>[]> {
     this.Removed.Clear()
     this.Swapped.Clear()
     this.Cleared.Clear()
+    this.Replaced.Clear()
   }
 
   public get Length(): number {

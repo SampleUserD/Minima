@@ -25,8 +25,10 @@ export class Stateful<T> {
     this.Notify()
   }
 
-  public Subscribe(subscriber: StatefulSubscriber<T>): void {
+  public Subscribe(subscriber: StatefulSubscriber<T>): () => void {
     this._subscribers.add(subscriber)
+
+    return () => this._subscribers.delete(subscriber)
   }
 
   public Notify(): void {

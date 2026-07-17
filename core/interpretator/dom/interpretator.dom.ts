@@ -1,5 +1,6 @@
 import { VNode } from "@/core/adapters/type.v-node"
 import { Interpretator } from "@/core/interpretator/interface.interpretator"
+import { Scheduler } from "@/core/scheduler/class.scheduler"
 import { BatchStatefulArrayOf } from "@/core/stateful/class.batch-stateful-array-of"
 import { Stateful } from "@/core/stateful/class.stateful"
 
@@ -24,6 +25,27 @@ export class DOMInterpretator implements Interpretator {
 
   private GetVNodeFrom(object: any): VNode {
     return object.vnode
+  }
+
+  private CreateUnsubscriberMap(element: HTMLElement) {
+    const patch = element as any
+
+    if (patch.unsubscribers == undefined) {
+      patch.unsubscribers = new Set<() => void>()
+    }
+  }
+
+  private RegisterUnsubscriber(element: HTMLElement, callback: () => void) {
+    const patch = element as any
+
+    patch.unsubscribers.add(callback)
+  }
+
+  private Unsubscribe(element: HTMLElement): void {
+    const patch = element as any
+
+    patch.unsubscribers.forEach(callback => callback())
+    patch.unsubscribers.clear()
   }
 
   private EnsureGlobalListener(name: string): void {
@@ -84,9 +106,11 @@ export class DOMInterpretator implements Interpretator {
       if (key.startsWith('bind-')) {
         const name = key.slice(5)
 
-        value.Subscribe(value => {
+        const unsubscribe = value.Subscribe(value => {
           element.setAttribute(name, value)
         })
+
+        this.RegisterUnsubscriber(element, unsubscribe)
       }
     }
   }
@@ -105,7 +129,10 @@ export class DOMInterpretator implements Interpretator {
 
         update()
 
-        dependencies.forEach(dependency => dependency.Subscribe(update))
+        dependencies.forEach(dependency => {
+          const unsubscribe = dependency.Subscribe(update)
+          this.RegisterUnsubscriber(element, unsubscribe)
+        })
       }
     }
   }
@@ -120,8 +147,53 @@ export class DOMInterpretator implements Interpretator {
 
       update()
 
-      stateful.Subscribe(update)
+      const unsubscribe = stateful.Subscribe(update)
+
+      this.RegisterUnsubscriber(element, unsubscribe)
     })
+  }
+
+  private HydrateList_Update(container: HTMLElement, items: Stateful<any>[], fabric: any, pool: HTMLElement[], template: HTMLElement): void {
+    const children_count = container.children.length
+    const data_count = items.length
+
+    const common_count = Math.min(children_count, data_count)
+
+    for (let index = 0; index < common_count; index++) {
+      const existing_element = container.children[index] as HTMLElement
+
+      this.Unsubscribe(existing_element)
+      this.PatchDOM(items[index], existing_element)
+      this.DeepHydrate(fabric(items[index], index + children_count), existing_element)
+    }
+
+    if (data_count > children_count) {
+      const fragment = document.createDocumentFragment()
+
+      for (let index = common_count; index < data_count; index++) {
+        const element = pool.length > 0 ? pool.pop()! : template.cloneNode(true) as HTMLElement
+
+        this.PatchDOM(items[index], element)
+        this.DeepHydrate(fabric(items[index], index + children_count), element)
+
+        fragment.appendChild(element)
+      }
+
+      container.appendChild(fragment)
+    }
+
+    if (children_count > data_count) {
+      while (container.children.length > data_count) {
+        const last_element = container.lastElementChild as HTMLElement
+
+        if (last_element) {
+          this.Unsubscribe(last_element)
+
+          pool.push(last_element)
+          last_element.remove()
+        }
+      }
+    }
   }
 
   private HydrateList(node: VNode, element: HTMLElement): void {
@@ -129,10 +201,13 @@ export class DOMInterpretator implements Interpretator {
     const item = node.Properties?.item
 
     const list = each?.Get() || []
+    const pool: HTMLElement[] = []
 
     const fragment = document.createDocumentFragment()
 
     let template: HTMLElement | null = null
+    let maximal_seen_elements: number = 0
+    let is_pending_clear: boolean = false
 
     list.forEach((r: any, i) => {
       const tr = item(r, i)
@@ -167,6 +242,8 @@ export class DOMInterpretator implements Interpretator {
       const fragment = document.createDocumentFragment()
       const count = element.children.length
 
+      maximal_seen_elements = Math.max(maximal_seen_elements, event.Value.length)
+
       if (template == null) {
         const first = item(event.Value[0], count)
         template = this.Create(first)
@@ -187,6 +264,17 @@ export class DOMInterpretator implements Interpretator {
       element.appendChild(fragment)
     })
 
+    each?.Replaced.Listen(event => {
+      if (template == null) {
+        const first = item(event.Value[0], element.children.length)
+        template = this.Create(first)
+      }
+
+      this.HydrateList_Update(element, event.Value, item, pool, template)
+
+      is_pending_clear = false
+    })
+
     each?.Removed.Listen(event => {
       const value = event.Value[0]
       const dom = this.GetDOMFrom(value)
@@ -195,11 +283,19 @@ export class DOMInterpretator implements Interpretator {
     })
 
     each?.Cleared.Listen(event => {
-      element.innerHTML = String()
+      is_pending_clear = true
+
+      Scheduler.Tick(() => {
+        if (is_pending_clear) {
+          element.innerHTML = String()
+          is_pending_clear = false
+        }
+      })
     })
   }
 
   private Hydrate(node: VNode, element: HTMLElement): void {
+    this.CreateUnsubscriberMap(element)
     this.HydrateFnAttributes(node, element)
     this.HydrateBindAttributes(node, element)
     this.HydrateTextContent(node, element)
