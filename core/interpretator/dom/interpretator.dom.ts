@@ -162,9 +162,8 @@ export class DOMInterpretator implements Interpretator {
     for (let index = 0; index < common_count; index++) {
       const existing_element = container.children[index] as HTMLElement
 
-      this.Unsubscribe(existing_element)
       this.PatchDOM(items[index], existing_element)
-      this.DeepHydrate(fabric(items[index], index + children_count), existing_element)
+      this.PatchVNode(items[index], fabric(items[index], index + children_count))
     }
 
     if (data_count > children_count) {
@@ -172,9 +171,11 @@ export class DOMInterpretator implements Interpretator {
 
       for (let index = common_count; index < data_count; index++) {
         const element = pool.length > 0 ? pool.pop()! : template.cloneNode(true) as HTMLElement
+        const node = fabric(items[index], index + children_count)
 
         this.PatchDOM(items[index], element)
-        this.DeepHydrate(fabric(items[index], index + children_count), element)
+        this.PatchVNode(items[index], node)
+        this.DeepHydrate(node, element)
 
         fragment.appendChild(element)
       }
@@ -283,14 +284,14 @@ export class DOMInterpretator implements Interpretator {
     })
 
     each?.Cleared.Listen(event => {
-      is_pending_clear = true
+      if (is_pending_clear == false) {
+        is_pending_clear = true
 
-      Scheduler.Tick(() => {
-        if (is_pending_clear) {
+        Scheduler.Tick(() => {
           element.innerHTML = String()
           is_pending_clear = false
-        }
-      })
+        })
+      }
     })
   }
 

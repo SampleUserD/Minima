@@ -9,6 +9,28 @@ export class BatchStatefulArrayOf<T> extends BatchStateful<Stateful<T>[]> {
   public readonly Cleared: Signal<{ Value: Stateful<T>[] }> = new Signal()
   public readonly Replaced: Signal<{ Value: Stateful<T>[] }> = new Signal()
 
+  private ShallowReset(value: T, stateful: Stateful<T>): void {
+    const is_object = typeof value !== 'object' || value === null
+
+    if (is_object == false) {
+      for (const key of Object.keys(value)) {
+        const object = stateful.Value[key]
+
+        if (value[key] instanceof Stateful == false) {
+          continue
+        }
+
+        if (object instanceof Stateful) {
+          object.Set(() => value[key].Get())
+        } else {
+          object[key] = value[key].Get()
+        }
+      }
+    } else {
+      stateful.Set(() => value)
+    }
+  }
+
   public constructor(value: T[]) {
     super([])
 
@@ -19,8 +41,16 @@ export class BatchStatefulArrayOf<T> extends BatchStateful<Stateful<T>[]> {
     const array = this.Get()
 
     value.forEach((replace, index) => {
-      array[index] = new Stateful<T>(replace)
+      if (array[index] !== undefined) {
+        this.ShallowReset(replace, array[index])
+      } else {
+        array[index] = new Stateful<T>(replace)
+      }
     })
+
+    if (array.length > value.length) {
+      array.length = value.length
+    }
 
     this.Replaced.Emit({ Value: array })
   }
