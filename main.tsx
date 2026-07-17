@@ -151,7 +151,7 @@ function App() {
           each={rows}
           item={
             (row: Batch<{ id: Batch<number>, label: Batch<string> }>, index: number) => (
-              <tr class={selected.If(v => v === index, v => "danger", v => "")} data-id={row.Get().id.Get()}>
+              <tr fn-class={() => selected.Get() == index ? "danger" : ""} fn-deps-class={[selected]}>
                 <td class="col-md-1">{row.Get().id}</td>
                 <td class="col-md-4"><a onclick={() => select_row(index)}>{row.Get().label}</a></td>
                 <td class="col-md-1"><a onclick={() => delete_row(row.Get().id.Get())}><span class="glyphicon glyphicon-remove" aria-hidden="true"></span></a></td>

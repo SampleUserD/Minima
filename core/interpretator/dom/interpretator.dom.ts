@@ -6,12 +6,24 @@ import { Stateful } from "@/core/stateful/class.stateful"
 export class DOMInterpretator implements Interpretator {
   private _events: Set<string> = new Set()
 
+  private IsSpecialAttribute(key: string): boolean {
+    return key.startsWith('fn-') || key.startsWith('bind-') || key === 'each' || key === 'item'
+  }
+
   private PatchDOM(object: any, element: HTMLElement): void {
     object.dom = element
   }
 
   private GetDOMFrom(object: any): HTMLElement {
     return object.dom
+  }
+
+  private PatchVNode(object: any, node: VNode): void {
+    object.vnode = node
+  }
+
+  private GetVNodeFrom(object: any): VNode {
+    return object.vnode
   }
 
   private EnsureGlobalListener(name: string): void {
@@ -61,18 +73,39 @@ export class DOMInterpretator implements Interpretator {
 
   private ApplyAttributes(node: VNode, element: HTMLElement): void {
     for (const [key, value] of Object.entries(node.Properties || {})) {
-      if (value instanceof Stateful == false) {
+      if (this.IsSpecialAttribute(key) == false && value instanceof Stateful == false) {
         element.setAttribute(key, value)
       }
     }
   }
 
-  private HydrateAttributes(node: VNode, element: HTMLElement): void {
+  private HydrateBindAttributes(node: VNode, element: HTMLElement): void {
     for (const [key, value] of Object.entries(node.Properties || {})) {
-      if (value instanceof Stateful) {
+      if (key.startsWith('bind-')) {
+        const name = key.slice(5)
+
         value.Subscribe(value => {
-          element.setAttribute(key, value)
+          element.setAttribute(name, value)
         })
+      }
+    }
+  }
+
+  private HydrateFnAttributes(node: VNode, element: HTMLElement): void {
+    for (const [key, value] of Object.entries(node.Properties || {})) {
+      if (key.startsWith('fn-deps-')) {
+        continue
+      }
+
+      if (key.startsWith('fn-')) {
+        const name = key.slice(3)
+        const dependencies = node.Properties[`fn-deps-${name}`] || []
+
+        const update = () => element.setAttribute(name, value())
+
+        update()
+
+        dependencies.forEach(dependency => dependency.Subscribe(update))
       }
     }
   }
@@ -107,6 +140,7 @@ export class DOMInterpretator implements Interpretator {
 
       this.PatchDOM(r, element)
       this.PatchDOM(tr, element)
+      this.PatchVNode(r, tr)
 
       this.DeepHydrate(tr, element)
 
@@ -116,17 +150,17 @@ export class DOMInterpretator implements Interpretator {
     element.appendChild(fragment)
 
     each?.Swapped.Listen(event => {
-      const children = element.children
-      const from = children[event.From] as HTMLElement
-      const to = children[event.To] as HTMLElement
+      const list = each?.Get()
+      const from = list[event.From]
+      const to = list[event.To]
 
-      this.DeepHydrate(node.Children[event.To] as VNode, from)
-      this.DeepHydrate(node.Children[event.From] as VNode, to)
+      const node = this.GetVNodeFrom(from)
 
-      const temporary = node.Children[event.To]
+      this.PatchVNode(from, this.GetVNodeFrom(to))
+      this.PatchVNode(to, node)
 
-      node.Children[event.To] = node.Children[event.From]
-      node.Children[event.From] = temporary
+      this.DeepHydrate(this.GetVNodeFrom(from), this.GetDOMFrom(from))
+      this.DeepHydrate(this.GetVNodeFrom(to), this.GetDOMFrom(to))
     })
 
     each?.Added.Listen(event => {
@@ -142,10 +176,9 @@ export class DOMInterpretator implements Interpretator {
         const current_node = item(event.Value[index], index + count)
         const current_element = template.cloneNode(true) as HTMLElement
 
-        node.Children.push(current_node)
-
         this.PatchDOM(event.Value[index], current_element)
         this.PatchDOM(current_node, current_element)
+        this.PatchVNode(event.Value[index], current_node)
         this.DeepHydrate(current_node, current_element)
 
         fragment.appendChild(current_element)
@@ -159,18 +192,16 @@ export class DOMInterpretator implements Interpretator {
       const dom = this.GetDOMFrom(value)
 
       dom.remove()
-
-      console.log('After remove, last 10 IDs:', Array.from(element.children).slice(-10).map(el => el.textContent));
     })
 
     each?.Cleared.Listen(event => {
       element.innerHTML = String()
-      node.Children = []
     })
   }
 
   private Hydrate(node: VNode, element: HTMLElement): void {
-    this.HydrateAttributes(node, element)
+    this.HydrateFnAttributes(node, element)
+    this.HydrateBindAttributes(node, element)
     this.HydrateTextContent(node, element)
     this.HydrateList(node, element)
   }

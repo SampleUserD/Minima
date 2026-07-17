@@ -38,4 +38,8 @@ export class Stateful<T> {
   public Dispose(): void {
     this._subscribers.clear()
   }
+
+  public get Value(): T {
+    return this.Get()
+  }
 }
