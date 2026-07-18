@@ -1,3 +1,4 @@
+import { Stateful } from '@/core/stateful/class.stateful'
 import minima, { jsx, Batch } from '@/index'
 
 let ID = 1
@@ -148,11 +149,11 @@ function App() {
         <tbody
           each={rows}
           item={
-            (row: Batch<{ id: Batch<number>, label: Batch<string> }>, index: number) => (
-              <tr fn-class={() => selected.Get() == index ? "danger" : ""} fn-deps-class={[selected]}>
-                <td class="col-md-1">{row.Get().id}</td>
-                <td class="col-md-4"><a onclick={() => select_row(index)}>{row.Get().label}</a></td>
-                <td class="col-md-1"><a onclick={() => delete_row(row.Get().id.Get())}><span class="glyphicon glyphicon-remove" aria-hidden="true"></span></a></td>
+            (row: Stateful<{ id: Batch<number>, label: Batch<string> }>, index: number) => (
+              <tr fn-class={() => selected.Value == index ? "danger" : ""} fn-deps-class={[selected]}>
+                <td class="col-md-1">{row.Value.id}</td>
+                <td class="col-md-4"><a onclick={() => select_row(index)}>{row.Value.label}</a></td>
+                <td class="col-md-1"><a onclick={() => delete_row(row.Value.id.Value)}><span class="glyphicon glyphicon-remove" aria-hidden="true"></span></a></td>
                 <td class="col-md-6"></td>
               </tr>
             )

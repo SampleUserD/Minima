@@ -3,7 +3,7 @@ import { VNode, VNodeChild, VNodeProperties, VNodeType } from "@/core/adapters/t
 export function jsx(type: VNodeType, properties: VNodeProperties, ...children: VNodeChild[]): VNode {
   return {
     Type: type,
-    Properties: properties,
+    Properties: properties || {},
     Children: children
   }
 }
@@ -11,7 +11,7 @@ export function jsx(type: VNodeType, properties: VNodeProperties, ...children: V
 export function jsxs(type: VNodeType, properties: VNodeProperties, ...children: VNodeChild[]): VNode {
   return {
     Type: type,
-    Properties: properties,
+    Properties: properties || {},
     Children: children
   }
 }
