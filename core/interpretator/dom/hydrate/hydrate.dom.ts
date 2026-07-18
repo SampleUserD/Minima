@@ -10,6 +10,8 @@ export const FN_ATTRIBUTE_PREFIX = 'fn'
 export const FN_DEPS_ATTRIBUTE_PREFIX = 'fn-deps'
 export const M_TEXT_ATTRIBUTE = 'm-text'
 export const M_TEXT_DEPS_ATTRIBUTE = 'm-text-deps'
+export const M_EX_ATTRIBUTE = 'm-ex'
+export const M_EX_DEPS_ATTRIBUTE = 'm-ex-deps'
 
 function HydrateTextAttribute(node: VNode, element: HTMLElement, key: string) {
   if (key === M_TEXT_ATTRIBUTE) {

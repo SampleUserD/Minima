@@ -117,7 +117,7 @@ function App() {
   }
 
   function select_row(index) {
-    selected.Set(() => index)
+    rows.SelectIndex(index)
   }
 
   function delete_row(id) {
@@ -150,7 +150,7 @@ function App() {
           each={rows}
           item={
             (row: Stateful<{ id: number, label: string }>, index: number) => (
-              <tr fn-class={() => selected.Value == index ? "danger" : ""} fn-deps-class={[selected]}>
+              <tr m-select={(element: HTMLElement) => element.className = "danger"} m-unselect={(element: HTMLElement) => element.className = String()}>
                 <td class="col-md-1" m-text={() => row.Value.id} m-text-deps={[row]}></td>
                 <td class="col-md-4"><a onclick={() => select_row(index)} m-text={() => row.Value.label} m-text-deps={[row]}></a></td>
                 <td class="col-md-1"><a onclick={() => delete_row(row.Value.id)}><span class="glyphicon glyphicon-remove" aria-hidden="true"></span></a></td>

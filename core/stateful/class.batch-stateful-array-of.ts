@@ -9,6 +9,7 @@ export class BatchStatefulArrayOf<T> extends BatchStateful<Stateful<T>[]> {
   public readonly Cleared: Signal<{ Value: Stateful<T>[] }> = new Signal()
   public readonly Updated: Signal<{ Value: Stateful<T>, Index: number }> = new Signal()
   public readonly Replaced: Signal<{ Value: Stateful<T>[] }> = new Signal()
+  public readonly Selected: Signal<{ Value: Stateful<T>[], Indexes: number[] }> = new Signal()
 
   public constructor(value: T[]) {
     super([])
@@ -73,6 +74,25 @@ export class BatchStatefulArrayOf<T> extends BatchStateful<Stateful<T>[]> {
     array[b] = temporary
 
     this.Swapped.Emit({ From: a, To: b })
+  }
+
+  public Select(predicate: (item: T, index: number) => boolean): Stateful<T> | undefined {
+    const array = this.Value
+
+    for (let index = 0; index < array.length; index++) {
+      if (predicate(array[index].Value, index)) {
+        this.Selected.Emit({ Value: [array[index]], Indexes: [index] })
+        return array[index]
+      }
+    }
+  }
+
+  public SelectIndex(index: number): Stateful<T> {
+    const array = this.Value
+
+    this.Selected.Emit({ Value: [array[index]], Indexes: [index] })
+
+    return array[index]
   }
 
   public Clear(): void {

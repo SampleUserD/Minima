@@ -12,6 +12,7 @@ import { ClearSubscriptions } from "@/core/interpretator/dom/subscriptions/dom.m
 export class DOMListHydrator<T> {
   private _pool: HTMLElement[] = []
   private _template: HTMLElement | null = null
+  private _selection: Stateful<T>[] = []
 
   private _flushing: boolean = false
 
@@ -118,6 +119,32 @@ export class DOMListHydrator<T> {
     this._container.appendChild(fragment)
   }
 
+  private Select(items: Stateful<T>[]): void {
+    this._selection.forEach(item => {
+      const node = GetVNodeFrom(item)
+      const dom = GetDOMFrom(item)
+
+      const unselect = node.Properties['m-unselect']
+
+      if (unselect !== undefined) {
+        unselect(dom)
+      }
+    })
+
+    items.forEach(item => {
+      const node = GetVNodeFrom(item)
+      const dom = GetDOMFrom(item)
+
+      const select = node.Properties['m-select']
+
+      if (select !== undefined) {
+        select(dom)
+      }
+    })
+
+    this._selection = items
+  }
+
   private Schedule() {
     if (this._flushing === false) {
       this._flushing = true
@@ -145,6 +172,10 @@ export class DOMListHydrator<T> {
     private _container: HTMLElement) { }
 
   public Hydrate(): void {
+    this._items.Selected.Listen(event => {
+      this.Select(event.Value)
+    })
+
     this._items.Added.Listen(event => {
       this._queues.Add.add(event)
       this.Schedule()
