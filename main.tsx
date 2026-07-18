@@ -63,11 +63,11 @@ function buildData(count = 1000) {
     'mouse',
     'keyboard'
   ]
-  const data: { id: Batch<number>, label: Batch<string> }[] = []
+  const data: { id: number, label: string }[] = []
   for (let i = 0; i < count; i++) {
     data.push({
-      id: new minima.Batch(ID++),
-      label: new minima.Batch(
+      id: ID++,
+      label: (
         adjectives[_random(adjectives.length)] +
         ' ' +
         colours[_random(colours.length)] +
@@ -80,7 +80,7 @@ function buildData(count = 1000) {
 }
 
 function App() {
-  const rows = new minima.ArrayOf<{ id: Batch<number>, label: Batch<string> }>([])
+  const rows = new minima.ArrayOf<{ id: number, label: string }>([])
   const selected = new minima.Batch<number | null>(null)
   const counter = new minima.Batch<number>(0)
 
@@ -98,8 +98,8 @@ function App() {
 
   function update10th() {
     for (let i = 0; i < rows.Length; i += 10) {
-      rows.At(i).Set(v => {
-        v.label.Set(v => v + ' !!!')
+      rows.Update(i, v => {
+        v.label += ' !!!'
 
         return v
       })
@@ -121,7 +121,7 @@ function App() {
   }
 
   function delete_row(id) {
-    const idx = rows.Get().findIndex(d => d.Get().id.Get() === id)
+    const idx = rows.Get().findIndex(d => d.Value.id === id)
 
     rows.Remove(idx)
   }
@@ -149,11 +149,11 @@ function App() {
         <tbody
           each={rows}
           item={
-            (row: Stateful<{ id: Batch<number>, label: Batch<string> }>, index: number) => (
+            (row: Stateful<{ id: number, label: string }>, index: number) => (
               <tr fn-class={() => selected.Value == index ? "danger" : ""} fn-deps-class={[selected]}>
-                <td class="col-md-1">{row.Value.id}</td>
-                <td class="col-md-4"><a onclick={() => select_row(index)}>{row.Value.label}</a></td>
-                <td class="col-md-1"><a onclick={() => delete_row(row.Value.id.Value)}><span class="glyphicon glyphicon-remove" aria-hidden="true"></span></a></td>
+                <td class="col-md-1" m-text={() => row.Value.id} m-text-deps={[row]}></td>
+                <td class="col-md-4"><a onclick={() => select_row(index)} m-text={() => row.Value.label} m-text-deps={[row]}></a></td>
+                <td class="col-md-1"><a onclick={() => delete_row(row.Value.id)}><span class="glyphicon glyphicon-remove" aria-hidden="true"></span></a></td>
                 <td class="col-md-6"></td>
               </tr>
             )

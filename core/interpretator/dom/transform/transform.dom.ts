@@ -8,7 +8,7 @@ export const EVENT_PREFIX = 'on'
 const ACTIVE_EVENTS: Set<string> = new Set()
 
 function IsSpecialAttribute(key: string) {
-  return key === 'each' || key === 'item' || key.startsWith(EVENT_PREFIX) || key.startsWith(BIND_ATTRIBUTE_PREFIX) || key.startsWith(FN_ATTRIBUTE_PREFIX)
+  return key === 'each' || key === 'item' || key.startsWith('m-') || key.startsWith(EVENT_PREFIX) || key.startsWith(BIND_ATTRIBUTE_PREFIX) || key.startsWith(FN_ATTRIBUTE_PREFIX)
 }
 
 function EnsureGlobalListener(name: string) {
@@ -64,7 +64,7 @@ export function ApplyEvents(node: VNode, element: HTMLElement) {
   }
 }
 
-function ApplyAttributes(node: VNode, element: HTMLElement) {
+export function ApplyAttributes(node: VNode, element: HTMLElement) {
   for (const [key, value] of Object.entries(node.Properties)) {
     if (IsSpecialAttribute(key) == false) {
       element.setAttribute(key, value)
@@ -72,7 +72,7 @@ function ApplyAttributes(node: VNode, element: HTMLElement) {
   }
 }
 
-function ApplyTextContent(node: VNode, element: HTMLElement) {
+export function ApplyTextContent(node: VNode, element: HTMLElement) {
   element.textContent = node.Children.filter(r => typeof r !== 'object').join(String())
 }
 

@@ -18,7 +18,8 @@ export class DOMListHydrator<T> {
   private _queues = {
     Add: new Set<{ Value: Stateful<T>[], Indexes: number[] }>(),
     Clear: new Set<{ Value: Stateful<T>[] }>(),
-    Replace: new Set<{ Value: Stateful<T>[] }>()
+    Update: new Set<{ Value: Stateful<T>, Index: number }>(),
+    Replace: new Set<{ Value: Stateful<T>[] }>(),
   }
 
   private PrepareHTMLTemplateFromCurrentVNode(): void {
@@ -125,6 +126,13 @@ export class DOMListHydrator<T> {
     this._container.appendChild(fragment)
   }
 
+  private Update(item: Stateful<T>, index: number): void {
+    const element = GetDOMFrom(item)
+    const node = this._farbic(item, index)
+
+    DeepHydrate(node, element)
+  }
+
   private Schedule() {
     if (this._flushing === false) {
       this._flushing = true
@@ -140,10 +148,12 @@ export class DOMListHydrator<T> {
     this._queues.Clear.forEach(event => this.Clear(event.Value))
     this._queues.Replace.forEach(event => this.Replace(event.Value))
     this._queues.Add.forEach(event => this.Add(event.Value))
+    this._queues.Update.forEach(event => this.Update(event.Value, event.Index))
 
     this._queues.Clear.clear()
     this._queues.Add.clear()
     this._queues.Replace.clear()
+    this._queues.Update.clear()
   }
 
   public constructor(
@@ -174,6 +184,11 @@ export class DOMListHydrator<T> {
 
     this._items.Removed.Listen(event => {
       this.Remove(event.Value[0])
+    })
+
+    this._items.Updated.Listen(event => {
+      this._queues.Update.add(event)
+      this.Schedule()
     })
   }
 }

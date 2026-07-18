@@ -7,6 +7,7 @@ export class BatchStatefulArrayOf<T> extends BatchStateful<Stateful<T>[]> {
   public readonly Removed: Signal<{ Value: Stateful<T>[], Indexes: number[] }> = new Signal()
   public readonly Swapped: Signal<{ From: number, To: number }> = new Signal()
   public readonly Cleared: Signal<{ Value: Stateful<T>[] }> = new Signal()
+  public readonly Updated: Signal<{ Value: Stateful<T>, Index: number }> = new Signal()
   public readonly Replaced: Signal<{ Value: Stateful<T>[] }> = new Signal()
 
   private ShallowReset(value: T, stateful: Stateful<T>): void {
@@ -82,6 +83,8 @@ export class BatchStatefulArrayOf<T> extends BatchStateful<Stateful<T>[]> {
     const array = this.Get()
 
     array[index].Set(setter)
+
+    this.Updated.Emit({ Value: array[index], Index: index })
   }
 
   public Swap(a: number, b: number): void {

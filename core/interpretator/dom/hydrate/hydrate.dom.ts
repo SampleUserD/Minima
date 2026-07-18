@@ -2,12 +2,29 @@ import { VNode } from "@/core/adapters/type.v-node";
 import { DOMListHydrator } from "@/core/interpretator/dom/hydrate/list.hydrator.dom";
 import { GetDOMFrom } from "@/core/interpretator/dom/patch.dom";
 import { RegisterSubscription } from "@/core/interpretator/dom/subscriptions/dom.manager";
-import { ApplyEvents, ClearEvents } from "@/core/interpretator/dom/transform/transform.dom";
+import { ApplyAttributes, ApplyEvents, ApplyTextContent, ClearEvents } from "@/core/interpretator/dom/transform/transform.dom";
 import { Stateful } from "@/core/stateful/class.stateful";
 
 export const BIND_ATTRIBUTE_PREFIX = 'bind'
 export const FN_ATTRIBUTE_PREFIX = 'fn'
 export const FN_DEPS_ATTRIBUTE_PREFIX = 'fn-deps'
+export const M_TEXT_ATTRIBUTE = 'm-text'
+export const M_TEXT_DEPS_ATTRIBUTE = 'm-text-deps'
+
+function HydrateTextAttribute(node: VNode, element: HTMLElement, key: string) {
+  if (key === M_TEXT_ATTRIBUTE) {
+    const value = node.Properties[M_TEXT_ATTRIBUTE]
+    const dependencies = node.Properties[M_TEXT_DEPS_ATTRIBUTE]
+
+    const update = () => element.textContent = value()
+
+    dependencies.forEach(dependency => {
+      RegisterSubscription(element, dependency.Subscribe(update))
+    })
+
+    update()
+  }
+}
 
 function HydrateBindAttribute(node: VNode, element: HTMLElement, key: string) {
   if (key.startsWith(BIND_ATTRIBUTE_PREFIX)) {
@@ -42,6 +59,7 @@ function HydrateFunctionalAttribute(node: VNode, element: HTMLElement, key: stri
 function HydrateAttributes(node: VNode, element: HTMLElement) {
   for (const key of Object.keys(node.Properties)) {
     HydrateBindAttribute(node, element, key)
+    HydrateTextAttribute(node, element, key)
     HydrateFunctionalAttribute(node, element, key)
   }
 }
