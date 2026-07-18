@@ -64,14 +64,6 @@ export class DOMListHydrator<T> {
 
     const common_count = Math.min(children_count, data_count)
 
-    for (let index = 0; index < common_count; index++) {
-      const existing_element = this._container.children[index] as HTMLElement
-      const new_node = this._farbic(items[index], index + children_count)
-
-      PatchDOM(items[index], existing_element)
-      PatchVNode(items[index], new_node)
-    }
-
     if (data_count > children_count) {
       const fragment = document.createDocumentFragment()
 
@@ -126,13 +118,6 @@ export class DOMListHydrator<T> {
     this._container.appendChild(fragment)
   }
 
-  private Update(item: Stateful<T>, index: number): void {
-    const element = GetDOMFrom(item)
-    const node = this._farbic(item, index)
-
-    DeepHydrate(node, element)
-  }
-
   private Schedule() {
     if (this._flushing === false) {
       this._flushing = true
@@ -148,12 +133,10 @@ export class DOMListHydrator<T> {
     this._queues.Clear.forEach(event => this.Clear(event.Value))
     this._queues.Replace.forEach(event => this.Replace(event.Value))
     this._queues.Add.forEach(event => this.Add(event.Value))
-    this._queues.Update.forEach(event => this.Update(event.Value, event.Index))
 
     this._queues.Clear.clear()
     this._queues.Add.clear()
     this._queues.Replace.clear()
-    this._queues.Update.clear()
   }
 
   public constructor(
@@ -172,8 +155,10 @@ export class DOMListHydrator<T> {
     })
 
     this._items.Replaced.Listen(event => {
-      this._queues.Replace.add(event)
       this._queues.Clear.clear()
+      this._queues.Replace.clear()
+
+      this._queues.Replace.add(event)
       this.Schedule()
     })
 
@@ -184,11 +169,6 @@ export class DOMListHydrator<T> {
 
     this._items.Removed.Listen(event => {
       this.Remove(event.Value[0])
-    })
-
-    this._items.Updated.Listen(event => {
-      this._queues.Update.add(event)
-      this.Schedule()
     })
   }
 }
