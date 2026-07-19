@@ -31,6 +31,7 @@ export class DOMListHydrator<T> {
     Clear: new Set<{ Value: AbstractStateful<T>[] }>(),
     Update: new Set<{ Value: AbstractStateful<T>, Index: number }>(),
     Replace: new Set<{ Value: AbstractStateful<T>[] }>(),
+    Swap: new Set<{ From: number, To: number }>()
   }
 
   private PrepareHTMLTemplateFromCurrentVNode(): void {
@@ -45,10 +46,15 @@ export class DOMListHydrator<T> {
   }
 
   private Swap(from_index: number, to_index: number): void {
-    const children = this._container.children
+    const previous = this._counter.Value
 
-    this._container.insertBefore(children[to_index], children[from_index + 1])
-    this._container.insertBefore(children[from_index], children[to_index + 1])
+    this._counter.Set(() => to_index)
+    Apply(this._container.children[from_index] as HTMLElement, this._template_analysis!)
+
+    this._counter.Set(() => from_index)
+    Apply(this._container.children[to_index] as HTMLElement, this._template_analysis!)
+
+    this._counter.Set(() => previous)
   }
 
   private Remove(item: AbstractStateful<T>): void {
@@ -194,10 +200,12 @@ export class DOMListHydrator<T> {
     this._queues.Clear.forEach(event => this.Clear(event.Value))
     this._queues.Replace.forEach(event => this.Replace(event.Value))
     this._queues.Add.forEach(event => this.Add(event.Value))
+    this._queues.Swap.forEach(event => this.Swap(event.From, event.To))
 
     this._queues.Clear.clear()
     this._queues.Add.clear()
     this._queues.Replace.clear()
+    this._queues.Swap.clear()
   }
 
   public constructor(
@@ -216,12 +224,14 @@ export class DOMListHydrator<T> {
     })
 
     this._items.Swapped.Listen(event => {
-      this.Swap(event.From, event.To)
+      this._queues.Swap.add(event)
+      this.Schedule()
     })
 
     this._items.Replaced.Listen(event => {
       this._queues.Clear.clear()
       this._queues.Replace.clear()
+      this._queues.Swap.clear()
 
       this._queues.Replace.add(event)
       this.Schedule()
