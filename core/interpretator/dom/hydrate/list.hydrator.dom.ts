@@ -2,19 +2,21 @@ import { VNode } from "@/core/adapters/type.v-node"
 import { GetDOMFrom, GetVNodeFrom, PatchDOM, PatchVNode } from "@/core/interpretator/dom/patch.dom"
 import { Transform } from "@/core/interpretator/dom/transform/transform.dom"
 
-import { DeepHydrate } from "@/core/interpretator/dom/hydrate/hydrate.dom"
-
 import { BatchStatefulArrayOf } from "@/core/stateful/class.stateful-array-of"
 import { Stateful } from "@/core/stateful/class.stateful"
 import { Scheduler } from "@/core/scheduler/class.scheduler"
 import { ClearSubscriptions } from "@/core/interpretator/dom/subscriptions/dom.manager"
 import { AbstractStateful } from "@/core/stateful/abstract.stateful"
 import { StatefulDependentOf } from "@/core/stateful/class.dependent-of"
+import { Analyze, Apply, KindToInstructionMap } from "@/core/interpretator/dom/analyzer/class.analyzer"
 
 export class DOMListHydrator<T> {
   private _pool: HTMLElement[] = []
+
   private _template: HTMLElement | null = null
   private _template_vnode: VNode | null = null
+  private _template_analysis: KindToInstructionMap | null = null
+
   private _selection: AbstractStateful<T>[] = []
 
   private _increment = (value: number) => value + 1
@@ -32,12 +34,13 @@ export class DOMListHydrator<T> {
   }
 
   private PrepareHTMLTemplateFromCurrentVNode(): void {
-    if (this._template == null || this._template_vnode == null) {
+    if (this._template == null || this._template_vnode == null || this._template_analysis == null) {
       const row = new StatefulDependentOf(this._counter, index => this._items.Value[index].Value)
       const index = new StatefulDependentOf(this._counter, index => index)
 
       this._template_vnode = this._farbic(row, index)
       this._template = Transform(this._template_vnode!)
+      this._template_analysis = Analyze(this._template_vnode)
     }
   }
 
@@ -74,7 +77,7 @@ export class DOMListHydrator<T> {
     this._counter.Set(this._clear)
 
     for (let index = 0; index < common_count; index++) {
-      DeepHydrate(this._template_vnode!, this._container.children[index] as HTMLElement)
+      Apply(this._container.children[index] as HTMLElement, this._template_analysis!)
 
       this._counter.Set(this._increment)
     }
@@ -88,7 +91,8 @@ export class DOMListHydrator<T> {
 
         PatchDOM(items[index], element)
         PatchVNode(items[index], node)
-        DeepHydrate(node, element)
+
+        Apply(element as HTMLElement, this._template_analysis!)
 
         fragment.appendChild(element)
 
@@ -117,7 +121,7 @@ export class DOMListHydrator<T> {
 
     const fragment = document.createDocumentFragment()
 
-    this._counter.Set(this._clear)
+    this._counter.Set(() => this._items.Length - items.length)
 
     for (let index = 0; index < items.length; index++) {
       const current_node = this._template_vnode!
@@ -128,7 +132,7 @@ export class DOMListHydrator<T> {
 
       PatchVNode(items[index], current_node)
 
-      DeepHydrate(current_node, current_element)
+      Apply(current_element, this._template_analysis!)
 
       fragment.appendChild(current_element)
 
