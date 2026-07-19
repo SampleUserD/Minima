@@ -18,18 +18,13 @@ export class DOMListHydrator<T> {
   private _template_analysis: KindToInstructionMap | null = null
 
   private _selection: AbstractStateful<T>[] = []
-
-  private _increment = (value: number) => value + 1
-  private _clear = () => 0
-
   private _counter: AbstractStateful<number> = new Stateful(0)
 
   private _flushing: boolean = false
-
   private _queues = {
     Add: new Set<{ Value: AbstractStateful<T>[], Indexes: number[] }>(),
     Clear: new Set<{ Value: AbstractStateful<T>[] }>(),
-    Update: new Set<{ Value: AbstractStateful<T>, Index: number }>(),
+    Update: new Map<number, AbstractStateful<T>>(),
     Replace: new Set<{ Value: AbstractStateful<T>[] }>(),
     Swap: new Set<{ From: number, To: number }>()
   }
@@ -48,13 +43,13 @@ export class DOMListHydrator<T> {
   private Swap(from_index: number, to_index: number): void {
     const previous = this._counter.Value
 
-    this._counter.Set(() => to_index)
+    this._counter.DirectSet(to_index)
     Apply(this._container.children[from_index] as HTMLElement, this._template_analysis!)
 
-    this._counter.Set(() => from_index)
+    this._counter.DirectSet(from_index)
     Apply(this._container.children[to_index] as HTMLElement, this._template_analysis!)
 
-    this._counter.Set(() => previous)
+    this._counter.DirectSet(previous)
   }
 
   private Remove(item: AbstractStateful<T>): void {
@@ -69,7 +64,7 @@ export class DOMListHydrator<T> {
     }
 
     this._container.innerHTML = String()
-    this._counter.Set(this._clear)
+    this._counter.DirectSet(0)
   }
 
   private Replace(items: AbstractStateful<T>[]): void {
@@ -80,12 +75,12 @@ export class DOMListHydrator<T> {
 
     const common_count = Math.min(children_count, data_count)
 
-    this._counter.Set(this._clear)
+    this._counter.DirectSet(0)
 
     for (let index = 0; index < common_count; index++) {
       Apply(this._container.children[index] as HTMLElement, this._template_analysis!)
 
-      this._counter.Set(this._increment)
+      this._counter.DirectSet(index)
     }
 
     if (data_count > children_count) {
@@ -102,7 +97,7 @@ export class DOMListHydrator<T> {
 
         fragment.appendChild(element)
 
-        this._counter.Set(this._increment)
+        this._counter.DirectSet(index)
       }
 
       this._container.appendChild(fragment)
@@ -127,8 +122,6 @@ export class DOMListHydrator<T> {
 
     const fragment = document.createDocumentFragment()
 
-    this._counter.Set(() => this._items.Length - items.length)
-
     for (let index = 0; index < items.length; index++) {
       const current_node = this._template_vnode!
       const current_element = this._template!.cloneNode(true) as HTMLElement
@@ -142,7 +135,7 @@ export class DOMListHydrator<T> {
 
       fragment.appendChild(current_element)
 
-      this._counter.Set(this._increment)
+      this._counter.DirectSet(this._items.Length - items.length + index)
     }
 
     this._container.appendChild(fragment)
@@ -176,13 +169,10 @@ export class DOMListHydrator<T> {
 
   private Update(item: AbstractStateful<T>, index: number): void {
     const dom = GetDOMFrom(item)
-    const previous = this._counter.Value
 
-    this._counter.Set(() => index)
+    this._counter.DirectSet(index)
 
     Apply(dom, this._template_analysis!)
-
-    this._counter.Set(() => previous)
   }
 
   private Schedule() {
@@ -201,11 +191,13 @@ export class DOMListHydrator<T> {
     this._queues.Replace.forEach(event => this.Replace(event.Value))
     this._queues.Add.forEach(event => this.Add(event.Value))
     this._queues.Swap.forEach(event => this.Swap(event.From, event.To))
+    this._queues.Update.forEach((value, key) => this.Update(value, key))
 
     this._queues.Clear.clear()
     this._queues.Add.clear()
     this._queues.Replace.clear()
     this._queues.Swap.clear()
+    this._queues.Update.clear()
   }
 
   public constructor(
@@ -247,7 +239,8 @@ export class DOMListHydrator<T> {
     })
 
     this._items.Updated.Listen(event => {
-      this.Update(event.Value, event.Index)
+      this._queues.Update.set(event.Index, event.Value)
+      this.Schedule()
     })
   }
 }

@@ -22,8 +22,14 @@ export class BatchStatefulArrayOf<T, U extends AbstractStateful<T> = AbstractSta
     return this._value
   }
 
+  public DirectSet(value: U[]): void {
+    this._value = value
+    this._version++
+  }
+
   public Set(value: (value: U[]) => U[]): void {
     this._value = value(this._value)
+    this._version++
   }
 
   public Replace(...value: T[]): void {
@@ -69,6 +75,16 @@ export class BatchStatefulArrayOf<T, U extends AbstractStateful<T> = AbstractSta
     const remove = array.splice(index, 1)!
 
     this.Removed.Emit({ Value: remove, Indexes: [index] })
+
+    this._version++
+  }
+
+  public DirectUpdate(index: number, value: T) {
+    const array = this.Get()
+
+    array[index].DirectSet(value)
+
+    this.Updated.Emit({ Value: array[index], Index: index })
 
     this._version++
   }

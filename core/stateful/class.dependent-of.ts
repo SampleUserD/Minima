@@ -8,6 +8,10 @@ export class StatefulDependentOf<T, U> implements AbstractStateful<U> {
     this._cache = this._compute(this._source.Value)
   }
 
+  public DirectSet(value: U): never {
+    throw new Error(`You can not set directly to readonly stateful`)
+  }
+
   public Set(value: (value: U) => U): never {
     throw new Error(`You can not set directly to readonly stateful`)
   }

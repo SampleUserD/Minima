@@ -23,11 +23,15 @@ export class Stateful<T> implements AbstractStateful<T> {
     return derived
   }
 
-  public Set(fabric: StatefulSetter<T>): void {
-    this._value = fabric(this._value)
-    this.Notify()
-
+  public DirectSet(value: T): void {
+    this._value = value
     this._version++
+
+    this.Notify()
+  }
+
+  public Set(fabric: StatefulSetter<T>): void {
+    this.DirectSet(fabric(this._value))
   }
 
   public Subscribe(subscriber: StatefulSubscriber<T>): () => void {
