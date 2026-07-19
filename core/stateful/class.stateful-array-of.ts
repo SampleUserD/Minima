@@ -1,20 +1,29 @@
-import { BatchStateful } from "@/core/stateful/class.batch-stateful"
 import { Stateful, StatefulSetter } from "@/core/stateful/class.stateful"
 import { Signal } from "@/signals/signal.class"
+import { AbstractStateful } from "@/core/stateful/abstract.stateful"
 
-export class BatchStatefulArrayOf<T> extends BatchStateful<Stateful<T>[]> {
-  public readonly Added: Signal<{ Value: Stateful<T>[], Indexes: number[] }> = new Signal()
-  public readonly Removed: Signal<{ Value: Stateful<T>[], Indexes: number[] }> = new Signal()
+export class BatchStatefulArrayOf<T, U extends AbstractStateful<T> = AbstractStateful<T>> implements AbstractStateful<U[]> {
+  private _version: number = 0
+  private _value: U[] = []
+
+  public readonly Added: Signal<{ Value: AbstractStateful<T>[], Indexes: number[] }> = new Signal()
+  public readonly Removed: Signal<{ Value: AbstractStateful<T>[], Indexes: number[] }> = new Signal()
   public readonly Swapped: Signal<{ From: number, To: number }> = new Signal()
-  public readonly Cleared: Signal<{ Value: Stateful<T>[] }> = new Signal()
-  public readonly Updated: Signal<{ Value: Stateful<T>, Index: number }> = new Signal()
-  public readonly Replaced: Signal<{ Value: Stateful<T>[] }> = new Signal()
-  public readonly Selected: Signal<{ Value: Stateful<T>[], Indexes: number[] }> = new Signal()
+  public readonly Cleared: Signal<{ Value: AbstractStateful<T>[] }> = new Signal()
+  public readonly Updated: Signal<{ Value: AbstractStateful<T>, Index: number }> = new Signal()
+  public readonly Replaced: Signal<{ Value: AbstractStateful<T>[] }> = new Signal()
+  public readonly Selected: Signal<{ Value: AbstractStateful<T>[], Indexes: number[] }> = new Signal()
 
-  public constructor(value: T[]) {
-    super([])
-
+  public constructor(value: T[], private _fabric: (item: T) => U) {
     this.Append(...value)
+  }
+
+  public Get(): U[] {
+    return this._value
+  }
+
+  public Set(value: (value: U[]) => U[]): void {
+    this._value = value(this._value)
   }
 
   public Replace(...value: T[]): void {
@@ -24,7 +33,7 @@ export class BatchStatefulArrayOf<T> extends BatchStateful<Stateful<T>[]> {
       if (array[index] !== undefined) {
         array[index].Set(() => replace)
       } else {
-        array[index] = new Stateful<T>(replace)
+        array[index] = this._fabric(replace)
       }
     })
 
@@ -33,15 +42,17 @@ export class BatchStatefulArrayOf<T> extends BatchStateful<Stateful<T>[]> {
     }
 
     this.Replaced.Emit({ Value: array })
+
+    this._version++
   }
 
   public Append(...value: T[]): void {
     const array = this.Get()
     const indexes: number[] = []
-    const values: Stateful<T>[] = []
+    const values: AbstractStateful<T>[] = []
 
     value.forEach(r => {
-      const stateful = new Stateful<T>(r)
+      const stateful = this._fabric(r)
       const index = array.push(stateful)
 
       indexes.push(index)
@@ -49,6 +60,8 @@ export class BatchStatefulArrayOf<T> extends BatchStateful<Stateful<T>[]> {
     })
 
     this.Added.Emit({ Value: values, Indexes: indexes })
+
+    this._version++
   }
 
   public Remove(index: number): void {
@@ -56,6 +69,8 @@ export class BatchStatefulArrayOf<T> extends BatchStateful<Stateful<T>[]> {
     const remove = array.splice(index, 1)!
 
     this.Removed.Emit({ Value: remove, Indexes: [index] })
+
+    this._version++
   }
 
   public Update(index: number, setter: StatefulSetter<T>) {
@@ -64,6 +79,8 @@ export class BatchStatefulArrayOf<T> extends BatchStateful<Stateful<T>[]> {
     array[index].Set(setter)
 
     this.Updated.Emit({ Value: array[index], Index: index })
+
+    this._version++
   }
 
   public Swap(a: number, b: number): void {
@@ -74,9 +91,11 @@ export class BatchStatefulArrayOf<T> extends BatchStateful<Stateful<T>[]> {
     array[b] = temporary
 
     this.Swapped.Emit({ From: a, To: b })
+
+    this._version++
   }
 
-  public Select(predicate: (item: T, index: number) => boolean): Stateful<T> | undefined {
+  public Select(predicate: (item: T, index: number) => boolean): AbstractStateful<T> | undefined {
     const array = this.Value
 
     for (let index = 0; index < array.length; index++) {
@@ -87,47 +106,43 @@ export class BatchStatefulArrayOf<T> extends BatchStateful<Stateful<T>[]> {
     }
   }
 
-  public SelectIndex(index: number): Stateful<T> {
+  public SelectIndex(index: number): U {
     const array = this.Value
 
     this.Selected.Emit({ Value: [array[index]], Indexes: [index] })
 
-    return array[index]
+    return array[index] as U
   }
 
   public Clear(): void {
     const value = this.Value
 
-    this.Set(() => [])
+    this._value = []
 
     this.Cleared.Emit({ Value: value })
-  }
 
-  public Pop(): Stateful<T> {
-    const array = this.Get()
-    const stateful = array.pop()
-
-    this.Notify()
-
-    return stateful!
-  }
-
-  public At(index: number): Stateful<T> {
-    const array = this.Get()
-
-    return array[index]
+    this._version++
   }
 
   public Dispose(): void {
-    super.Dispose()
     this.Added.Clear()
     this.Removed.Clear()
     this.Swapped.Clear()
     this.Cleared.Clear()
     this.Replaced.Clear()
+
+    this._version = 0
   }
 
   public get Length(): number {
     return this.Get().length
+  }
+
+  public get Value(): U[] {
+    return this.Get()
+  }
+
+  public get Version(): number {
+    return this._version
   }
 }

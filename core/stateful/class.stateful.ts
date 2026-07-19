@@ -1,8 +1,11 @@
+import { AbstractStateful } from "@/core/stateful/abstract.stateful"
+
 export type StatefulSubscriber<T> = (value: T) => void
 export type StatefulSetter<T> = (value: T) => T
 
-export class Stateful<T> {
+export class Stateful<T> implements AbstractStateful<T> {
   private _subscribers: Set<StatefulSubscriber<T>> = new Set()
+  private _version: number = 0
 
   public constructor(private _value: T) {
     this.Notify()
@@ -23,6 +26,8 @@ export class Stateful<T> {
   public Set(fabric: StatefulSetter<T>): void {
     this._value = fabric(this._value)
     this.Notify()
+
+    this._version++
   }
 
   public Subscribe(subscriber: StatefulSubscriber<T>): () => void {
@@ -39,9 +44,15 @@ export class Stateful<T> {
 
   public Dispose(): void {
     this._subscribers.clear()
+
+    this._version = 0
   }
 
   public get Value(): T {
     return this.Get()
+  }
+
+  public get Version(): number {
+    return this._version
   }
 }

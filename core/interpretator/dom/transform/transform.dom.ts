@@ -11,7 +11,7 @@ function IsSpecialAttribute(key: string) {
   return key === 'each' || key === 'item' || key.startsWith('m-') || key.startsWith(EVENT_PREFIX) || key.startsWith(BIND_ATTRIBUTE_PREFIX) || key.startsWith(FN_ATTRIBUTE_PREFIX)
 }
 
-function EnsureGlobalListener(name: string) {
+export function EnsureGlobalListener(name: string) {
   if (ACTIVE_EVENTS.has(name)) {
     return
   }

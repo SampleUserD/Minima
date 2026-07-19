@@ -4,60 +4,66 @@ import { Transform } from "@/core/interpretator/dom/transform/transform.dom"
 
 import { DeepHydrate } from "@/core/interpretator/dom/hydrate/hydrate.dom"
 
-import { BatchStatefulArrayOf } from "@/core/stateful/class.batch-stateful-array-of"
+import { BatchStatefulArrayOf } from "@/core/stateful/class.stateful-array-of"
 import { Stateful } from "@/core/stateful/class.stateful"
 import { Scheduler } from "@/core/scheduler/class.scheduler"
 import { ClearSubscriptions } from "@/core/interpretator/dom/subscriptions/dom.manager"
+import { AbstractStateful } from "@/core/stateful/abstract.stateful"
+import { StatefulDependentOf } from "@/core/stateful/class.dependent-of"
 
 export class DOMListHydrator<T> {
   private _pool: HTMLElement[] = []
   private _template: HTMLElement | null = null
-  private _selection: Stateful<T>[] = []
+  private _template_vnode: VNode | null = null
+  private _selection: AbstractStateful<T>[] = []
+
+  private _increment = (value: number) => value + 1
+  private _clear = () => 0
+
+  private _counter: AbstractStateful<number> = new Stateful(0)
 
   private _flushing: boolean = false
 
   private _queues = {
-    Add: new Set<{ Value: Stateful<T>[], Indexes: number[] }>(),
-    Clear: new Set<{ Value: Stateful<T>[] }>(),
-    Update: new Set<{ Value: Stateful<T>, Index: number }>(),
-    Replace: new Set<{ Value: Stateful<T>[] }>(),
+    Add: new Set<{ Value: AbstractStateful<T>[], Indexes: number[] }>(),
+    Clear: new Set<{ Value: AbstractStateful<T>[] }>(),
+    Update: new Set<{ Value: AbstractStateful<T>, Index: number }>(),
+    Replace: new Set<{ Value: AbstractStateful<T>[] }>(),
   }
 
   private PrepareHTMLTemplateFromCurrentVNode(): void {
-    if (this._template == null) {
-      this._template = Transform(this._farbic(this._items.Value[0], 0))
+    if (this._template == null || this._template_vnode == null) {
+      const row = new StatefulDependentOf(this._counter, index => this._items.Value[index].Value)
+      const index = new StatefulDependentOf(this._counter, index => index)
+
+      this._template_vnode = this._farbic(row, index)
+      this._template = Transform(this._template_vnode!)
     }
   }
 
   private Swap(from_index: number, to_index: number): void {
-    const list = this._items.Value
-    const from = list[from_index]
-    const to = list[to_index]
+    const children = this._container.children
 
-    const node = GetVNodeFrom(from)
-
-    PatchVNode(from, GetVNodeFrom(to))
-    PatchVNode(to, node)
-
-    DeepHydrate(GetVNodeFrom(from), GetDOMFrom(from))
-    DeepHydrate(GetVNodeFrom(to), GetDOMFrom(to))
+    this._container.insertBefore(children[to_index], children[from_index + 1])
+    this._container.insertBefore(children[from_index], children[to_index + 1])
   }
 
-  private Remove(item: Stateful<T>): void {
+  private Remove(item: AbstractStateful<T>): void {
     const dom = GetDOMFrom(item)
 
     dom.remove()
   }
 
-  private Clear(items: Stateful<T>[]): void {
+  private Clear(items: AbstractStateful<T>[]): void {
     for (const item of items) {
       this._pool.push(GetDOMFrom(item))
     }
 
     this._container.innerHTML = String()
+    this._counter.Set(this._clear)
   }
 
-  private Replace(items: Stateful<T>[]): void {
+  private Replace(items: AbstractStateful<T>[]): void {
     this.PrepareHTMLTemplateFromCurrentVNode()
 
     const children_count = this._container.children.length
@@ -65,18 +71,28 @@ export class DOMListHydrator<T> {
 
     const common_count = Math.min(children_count, data_count)
 
+    this._counter.Set(this._clear)
+
+    for (let index = 0; index < common_count; index++) {
+      DeepHydrate(this._template_vnode!, this._container.children[index] as HTMLElement)
+
+      this._counter.Set(this._increment)
+    }
+
     if (data_count > children_count) {
       const fragment = document.createDocumentFragment()
 
       for (let index = common_count; index < data_count; index++) {
         const element = this._pool.length > 0 ? this._pool.pop()! : this._template!.cloneNode(true) as HTMLElement
-        const node = this._farbic(items[index], index + children_count)
+        const node = this._template_vnode!
 
         PatchDOM(items[index], element)
         PatchVNode(items[index], node)
         DeepHydrate(node, element)
 
         fragment.appendChild(element)
+
+        this._counter.Set(this._increment)
       }
 
       this._container.appendChild(fragment)
@@ -96,14 +112,15 @@ export class DOMListHydrator<T> {
     }
   }
 
-  private Add(items: Stateful<T>[]): void {
+  private Add(items: AbstractStateful<T>[]): void {
     this.PrepareHTMLTemplateFromCurrentVNode()
 
     const fragment = document.createDocumentFragment()
-    const count = this._container.children.length
+
+    this._counter.Set(this._clear)
 
     for (let index = 0; index < items.length; index++) {
-      const current_node = this._farbic(items[index], index + count)
+      const current_node = this._template_vnode!
       const current_element = this._template!.cloneNode(true) as HTMLElement
 
       PatchDOM(items[index], current_element)
@@ -114,12 +131,14 @@ export class DOMListHydrator<T> {
       DeepHydrate(current_node, current_element)
 
       fragment.appendChild(current_element)
+
+      this._counter.Set(this._increment)
     }
 
     this._container.appendChild(fragment)
   }
 
-  private Select(items: Stateful<T>[]): void {
+  private Select(items: AbstractStateful<T>[]): void {
     this._selection.forEach(item => {
       const node = GetVNodeFrom(item)
       const dom = GetDOMFrom(item)
@@ -168,7 +187,7 @@ export class DOMListHydrator<T> {
 
   public constructor(
     private _items: BatchStatefulArrayOf<T>,
-    private _farbic: (item: Stateful<T>, index: number) => VNode,
+    private _farbic: (item: AbstractStateful<T>, index: AbstractStateful<number>) => VNode,
     private _container: HTMLElement) { }
 
   public Hydrate(): void {

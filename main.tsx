@@ -1,5 +1,5 @@
 import { Stateful } from '@/core/stateful/class.stateful'
-import minima, { jsx, Batch } from '@/index'
+import minima, { Abstract, jsx } from '@/index'
 
 let ID = 1
 
@@ -80,9 +80,9 @@ function buildData(count = 1000) {
 }
 
 function App() {
-  const rows = new minima.ArrayOf<{ id: number, label: string }>([])
-  const selected = new minima.Batch<number | null>(null)
-  const counter = new minima.Batch<number>(0)
+  const rows = new minima.ArrayOf<{ id: number, label: string }>([], item => new Stateful(item))
+  const selected = new minima.Singular<number | null>(null)
+  const counter = new minima.Singular<number>(0)
 
   function create1000th() {
     rows.Replace(...buildData(1000))
@@ -121,7 +121,7 @@ function App() {
   }
 
   function delete_row(id) {
-    const idx = rows.Get().findIndex(d => d.Value.id === id)
+    const idx = rows.Value.findIndex(row => row.Value.id == id)
 
     rows.Remove(idx)
   }
@@ -149,14 +149,33 @@ function App() {
         <tbody
           each={rows}
           item={
-            (row: Stateful<{ id: number, label: string }>, index: number) => (
-              <tr m-select={(element: HTMLElement) => element.className = "danger"} m-unselect={(element: HTMLElement) => element.className = String()}>
-                <td class="col-md-1" m-text={() => row.Value.id} m-text-deps={[row]}></td>
-                <td class="col-md-4"><a onclick={() => select_row(index)} m-text={() => row.Value.label} m-text-deps={[row]}></a></td>
-                <td class="col-md-1"><a onclick={() => delete_row(row.Value.id)}><span class="glyphicon glyphicon-remove" aria-hidden="true"></span></a></td>
-                <td class="col-md-6"></td>
-              </tr>
-            )
+            (row: Abstract<{ id: number, label: string }>, index: Abstract<number>) => {
+              return (
+                <tr
+                  m-select={(element: HTMLElement) => element.className = "danger"}
+                  m-unselect={(element: HTMLElement) => element.className = String()}>
+                  <td class="col-md-1" m-text={() => row.Value.id}></td>
+                  <td class="col-md-4">
+                    <a
+                      m-slot-index={() => index.Value}
+                      onclick={event => select_row(event.target.slots.index)}
+                      m-text={() => row.Value.label}>
+                    </a>
+                  </td>
+                  <td class="col-md-1">
+                    <a
+                      onclick={event => delete_row(event.target.slots.index)}>
+                      <span
+                        m-slot-fix-index={() => row.Value.id}
+                        class="glyphicon glyphicon-remove"
+                        aria-hidden="true">
+                      </span>
+                    </a>
+                  </td>
+                  <td class="col-md-6"></td>
+                </tr>
+              )
+            }
           }
         >
         </tbody>
