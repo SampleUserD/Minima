@@ -1,5 +1,5 @@
 import { VNode } from "@/core/adapters/type.v-node"
-import { GetDOMFrom, GetVNodeFrom, PatchDOM, PatchVNode } from "@/core/interpretator/dom/patch.dom"
+import { GetDOMFrom, GetVNodeFrom, PatchDOM, PatchIndex, PatchVNode } from "@/core/interpretator/dom/patch.dom"
 import { Transform } from "@/core/interpretator/dom/transform/transform.dom"
 
 import { BatchStatefulArrayOf } from "@/core/stateful/class.stateful-array-of"
@@ -75,29 +75,28 @@ export class DOMListHydrator<T> {
 
     const common_count = Math.min(children_count, data_count)
 
-    this._counter.DirectSet(0)
-
     for (let index = 0; index < common_count; index++) {
-      Apply(this._container.children[index] as HTMLElement, this._template_analysis!)
-
       this._counter.DirectSet(index)
+
+      Apply(this._container.children[index] as HTMLElement, this._template_analysis!)
     }
 
     if (data_count > children_count) {
       const fragment = document.createDocumentFragment()
 
       for (let index = common_count; index < data_count; index++) {
+        this._counter.DirectSet(index)
+
         const element = this._pool.length > 0 ? this._pool.pop()! : this._template!.cloneNode(true) as HTMLElement
         const node = this._template_vnode!
 
         PatchDOM(items[index], element)
         PatchVNode(items[index], node)
+        PatchIndex(element, index)
 
         Apply(element as HTMLElement, this._template_analysis!)
 
         fragment.appendChild(element)
-
-        this._counter.DirectSet(index)
       }
 
       this._container.appendChild(fragment)
@@ -123,6 +122,8 @@ export class DOMListHydrator<T> {
     const fragment = document.createDocumentFragment()
 
     for (let index = 0; index < items.length; index++) {
+      this._counter.DirectSet(this._items.Length - items.length + index)
+
       const current_node = this._template_vnode!
       const current_element = this._template!.cloneNode(true) as HTMLElement
 
@@ -130,12 +131,11 @@ export class DOMListHydrator<T> {
       PatchDOM(current_node, current_element)
 
       PatchVNode(items[index], current_node)
+      PatchIndex(current_element, index)
 
       Apply(current_element, this._template_analysis!)
 
       fragment.appendChild(current_element)
-
-      this._counter.DirectSet(this._items.Length - items.length + index)
     }
 
     this._container.appendChild(fragment)
@@ -191,7 +191,7 @@ export class DOMListHydrator<T> {
     this._queues.Replace.forEach(event => this.Replace(event.Value))
     this._queues.Add.forEach(event => this.Add(event.Value))
     this._queues.Swap.forEach(event => this.Swap(event.From, event.To))
-    this._queues.Update.forEach((value, key) => this.Update(value, key))
+    this._queues.Update.forEach((event, index) => this.Update(event, index))
 
     this._queues.Clear.clear()
     this._queues.Add.clear()
@@ -224,6 +224,7 @@ export class DOMListHydrator<T> {
       this._queues.Clear.clear()
       this._queues.Replace.clear()
       this._queues.Swap.clear()
+      this._queues.Update.clear()
 
       this._queues.Replace.add(event)
       this.Schedule()

@@ -1,10 +1,12 @@
 import { VNode } from "@/core/adapters/type.v-node"
 import { M_SLOT_ATRRIBUTE, M_SLOT_FIX_ATRRIBUTE, M_TEXT_ATTRIBUTE } from "@/core/interpretator/dom/hydrate/hydrate.dom"
+import { GetIndexFrom } from "@/core/interpretator/dom/patch.dom"
 import { EnsureGlobalListener } from "@/core/interpretator/dom/transform/transform.dom"
 import { Stateful } from "@/core/stateful/class.stateful"
 
 export interface Instruction {
   Path: number[]
+  Target?: Map<number[], HTMLElement[]>
 }
 
 export interface TextInstruction extends Instruction {
@@ -103,58 +105,84 @@ export function GetChildByPath(element: HTMLElement, path: number[]): HTMLElemen
   return target
 }
 
+export function ApplyInstruction<T extends Instruction>(element: HTMLElement, instruction: T, callback: (e: HTMLElement, v: T) => void) {
+  const patch = element as any
+
+  if (instruction.Target === undefined) {
+    instruction.Target = new Map()
+  }
+
+  let targets = instruction.Target.get(instruction.Path)
+
+  if (targets === undefined) {
+    targets = []
+    instruction.Target.set(instruction.Path, targets)
+  }
+
+  const index = GetIndexFrom(element)
+  let target = targets[index]
+
+  const exists = target === undefined || target === null
+
+  if (exists) {
+    target = GetChildByPath(element, instruction.Path)!
+  }
+
+  callback(target, instruction)
+}
+
+export const EVENT_INSTRUCTION = (target: HTMLElement, instruction: EventInstruction) => {
+  const patch = target as any
+
+  if (patch.listeners === undefined) {
+    patch.listeners = new Map<string, (event: Event) => void>()
+  }
+
+  patch.listeners.set(instruction.Name, instruction.Callback)
+
+  EnsureGlobalListener(instruction.Name)
+}
+
+export const FIXED_SLOT_INSTRUCTION = (target: HTMLElement, instruction: SlotInstruction) => {
+  const patch = target as any
+
+  if (patch.slots === undefined) {
+    patch.slots = {}
+  }
+
+  if (instruction.Name in patch.slots == false) {
+    patch.slots[instruction.Name] = instruction.Getter()
+  }
+}
+
+export const SLOT_INSTRUCTION = (target: HTMLElement, instruction: SlotInstruction) => {
+  const patch = target as any
+
+  if (patch.slots === undefined) {
+    patch.slots = {}
+  }
+
+  patch.slots[instruction.Name] = instruction.Getter()
+}
+
+export const TEXT_INSTRUCTION = (target: HTMLElement, instruction: TextInstruction) => {
+  target.textContent = instruction.Getter()
+}
+
 export function Apply(element: HTMLElement, instructions: KindToInstructionMap): void {
-  for (const event_instruction of instructions.Events) {
-    const target = GetChildByPath(element, event_instruction.Path)
-
-    if (target !== null) {
-      const patch = target as any
-
-      if (patch.listeners === undefined) {
-        patch.listeners = new Map<string, (event: Event) => void>()
-      }
-
-      patch.listeners.set(event_instruction.Name, event_instruction.Callback)
-
-      EnsureGlobalListener(event_instruction.Name)
-    }
+  for (const instruction of instructions.Events) {
+    ApplyInstruction(element, instruction, EVENT_INSTRUCTION)
   }
 
-  for (const slot_instruction of instructions.FixedSlot) {
-    const target = GetChildByPath(element, slot_instruction.Path)
-
-    if (target !== null) {
-      const patch = target as any
-
-      if (patch.slots === undefined) {
-        patch.slots = {}
-      }
-
-      if (slot_instruction.Name in patch.slots == false) {
-        patch.slots[slot_instruction.Name] = slot_instruction.Getter()
-      }
-    }
+  for (const instruction of instructions.FixedSlot) {
+    ApplyInstruction(element, instruction, FIXED_SLOT_INSTRUCTION)
   }
 
-  for (const slot_instruction of instructions.Slot) {
-    const target = GetChildByPath(element, slot_instruction.Path)
-
-    if (target !== null) {
-      const patch = target as any
-
-      if (patch.slots === undefined) {
-        patch.slots = {}
-      }
-
-      patch.slots[slot_instruction.Name] = slot_instruction.Getter()
-    }
+  for (const instruction of instructions.Slot) {
+    ApplyInstruction(element, instruction, SLOT_INSTRUCTION)
   }
 
-  for (const text_instruction of instructions.Text) {
-    const target = GetChildByPath(element, text_instruction.Path)
-
-    if (target !== null) {
-      target.textContent = text_instruction.Getter()
-    }
+  for (const instruction of instructions.Text) {
+    ApplyInstruction(element, instruction, TEXT_INSTRUCTION)
   }
 }

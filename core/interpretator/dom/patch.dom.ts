@@ -16,3 +16,10 @@ export function GetVNodeFrom(object: any): VNode {
   return object.vnode
 }
 
+export function PatchIndex(object: any, index: number): void {
+  object.index = index
+}
+
+export function GetIndexFrom(object: any): number {
+  return object.index
+}
