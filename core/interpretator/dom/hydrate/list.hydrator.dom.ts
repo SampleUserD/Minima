@@ -168,6 +168,17 @@ export class DOMListHydrator<T> {
     this._selection = items
   }
 
+  private Update(item: AbstractStateful<T>, index: number): void {
+    const dom = GetDOMFrom(item)
+    const previous = this._counter.Value
+
+    this._counter.Set(() => index)
+
+    Apply(dom, this._template_analysis!)
+
+    this._counter.Set(() => previous)
+  }
+
   private Schedule() {
     if (this._flushing === false) {
       this._flushing = true
@@ -223,6 +234,10 @@ export class DOMListHydrator<T> {
 
     this._items.Removed.Listen(event => {
       this.Remove(event.Value[0])
+    })
+
+    this._items.Updated.Listen(event => {
+      this.Update(event.Value, event.Index)
     })
   }
 }
