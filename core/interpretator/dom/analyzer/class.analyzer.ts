@@ -5,8 +5,9 @@ import { EnsureGlobalListener } from "@/core/interpretator/dom/transform/transfo
 import { Stateful } from "@/core/stateful/class.stateful"
 
 export interface Instruction {
-  Path: number[]
-  Target?: Map<number[], HTMLElement[]>
+  URL: string,
+  Path: number[],
+  Target: Map<string, HTMLElement[]>
 }
 
 export interface TextInstruction extends Instruction {
@@ -41,7 +42,9 @@ export function Analyze(node: VNode, path: number[] = []): KindToInstructionMap 
   for (const [key, value] of Object.entries(node.Properties)) {
     if (key === M_TEXT_ATTRIBUTE) {
       instructions.Text.push({
+        URL: path.join('/'),
         Path: [...path],
+        Target: new Map(),
         Getter: value
       })
 
@@ -50,8 +53,10 @@ export function Analyze(node: VNode, path: number[] = []): KindToInstructionMap 
 
     if (key.startsWith(M_SLOT_FIX_ATRRIBUTE)) {
       instructions.FixedSlot.push({
+        URL: path.join('/'),
         Path: [...path],
         Getter: value,
+        Target: new Map(),
         Name: key.slice(M_SLOT_FIX_ATRRIBUTE.length + 1)
       })
 
@@ -60,8 +65,10 @@ export function Analyze(node: VNode, path: number[] = []): KindToInstructionMap 
 
     if (key.startsWith(M_SLOT_ATRRIBUTE)) {
       instructions.Slot.push({
+        URL: path.join('/'),
         Path: [...path],
         Getter: value,
+        Target: new Map(),
         Name: key.slice(M_SLOT_ATRRIBUTE.length + 1)
       })
     }
@@ -70,8 +77,10 @@ export function Analyze(node: VNode, path: number[] = []): KindToInstructionMap 
       const name = key.slice('on'.length)
 
       instructions.Events.push({
+        URL: path.join('/'),
         Path: [...path],
         Callback: value,
+        Target: new Map(),
         Name: name
       })
     }
@@ -106,17 +115,11 @@ export function GetChildByPath(element: HTMLElement, path: number[]): HTMLElemen
 }
 
 export function ApplyInstruction<T extends Instruction>(element: HTMLElement, instruction: T, callback: (e: HTMLElement, v: T) => void) {
-  const patch = element as any
-
-  if (instruction.Target === undefined) {
-    instruction.Target = new Map()
-  }
-
-  let targets = instruction.Target.get(instruction.Path)
+  let targets = instruction.Target.get(instruction.URL)
 
   if (targets === undefined) {
     targets = []
-    instruction.Target.set(instruction.Path, targets)
+    instruction.Target.set(instruction.URL, targets)
   }
 
   const index = GetIndexFrom(element)
