@@ -205,7 +205,33 @@ export const TEXT_INSTRUCTION = (target: HTMLElement, instruction: TextInstructi
   target.textContent = instruction.Getter()
 }
 
-export function Apply(element: HTMLElement, group: InstructionGroup): void {
+export function ApplyInstructions(element: HTMLElement, instructions: KindToInstructionMap): void {
+  for (const instruction of instructions.Events) {
+    const target = GetChildByPath(element, instruction.Path)
+
+    EVENT_INSTRUCTION(target!, instruction)
+  }
+
+  for (const instruction of instructions.FixedSlot) {
+    const target = GetChildByPath(element, instruction.Path)
+
+    FIXED_SLOT_INSTRUCTION(target!, instruction)
+  }
+
+  for (const instruction of instructions.Slot) {
+    const target = GetChildByPath(element, instruction.Path)
+
+    SLOT_INSTRUCTION(target!, instruction)
+  }
+
+  for (const instruction of instructions.Text) {
+    const target = GetChildByPath(element, instruction.Path)
+
+    TEXT_INSTRUCTION(target!, instruction)
+  }
+}
+
+export function ApplyGroup(element: HTMLElement, group: InstructionGroup): void {
   const index = GetIndexFrom(element)
 
   for (const [path, instructions] of group.Group.entries()) {

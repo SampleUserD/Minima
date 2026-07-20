@@ -8,14 +8,16 @@ import { Scheduler } from "@/core/scheduler/class.scheduler"
 import { ClearSubscriptions } from "@/core/interpretator/dom/subscriptions/dom.manager"
 import { AbstractStateful } from "@/core/stateful/abstract.stateful"
 import { StatefulDependentOf } from "@/core/stateful/class.dependent-of"
-import { Analyze, Apply, GroupByPath, InstructionGroup } from "@/core/interpretator/dom/analyzer/class.analyzer"
+import { Analyze, ApplyGroup, ApplyInstructions, GroupByPath, InstructionGroup, KindToInstructionMap } from "@/core/interpretator/dom/analyzer/class.analyzer"
 
 export class DOMListHydrator<T> {
   private _pool: HTMLElement[] = []
 
   private _template: HTMLElement | null = null
   private _template_vnode: VNode | null = null
-  private _template_analysis: InstructionGroup | null = null
+
+  private _instructions: KindToInstructionMap | null = null
+  private _group: InstructionGroup | null = null
 
   private _selection: Map<number, AbstractStateful<T>> = new Map()
   private _counter: AbstractStateful<number> = new Stateful(0)
@@ -31,15 +33,14 @@ export class DOMListHydrator<T> {
   }
 
   private PrepareHTMLTemplateFromCurrentVNode(): void {
-    if (this._template == null || this._template_vnode == null || this._template_analysis == null) {
+    if (this._template == null || this._template_vnode == null || this._instructions == null) {
       const row = new StatefulDependentOf(this._counter, index => this._items.Value[index].Value)
       const index = new StatefulDependentOf(this._counter, index => index)
 
       this._template_vnode = this._farbic(row, index)
       this._template = Transform(this._template_vnode!)
-      this._template_analysis = GroupByPath(
-        Analyze(this._template_vnode)
-      )
+      this._instructions = Analyze(this._template_vnode)
+      this._group = GroupByPath(this._instructions)
     }
   }
 
@@ -47,10 +48,10 @@ export class DOMListHydrator<T> {
     const previous = this._counter.Value
 
     this._counter.DirectSet(to_index)
-    Apply(this._container.children[from_index] as HTMLElement, this._template_analysis!)
+    ApplyInstructions(this._container.children[from_index] as HTMLElement, this._instructions!)
 
     this._counter.DirectSet(from_index)
-    Apply(this._container.children[to_index] as HTMLElement, this._template_analysis!)
+    ApplyInstructions(this._container.children[to_index] as HTMLElement, this._instructions!)
 
     this._counter.DirectSet(previous)
   }
@@ -81,7 +82,7 @@ export class DOMListHydrator<T> {
     for (let index = 0; index < common_count; index++) {
       this._counter.DirectSet(index)
 
-      Apply(this._container.children[index] as HTMLElement, this._template_analysis!)
+      ApplyGroup(this._container.children[index] as HTMLElement, this._group!)
     }
 
     if (data_count > children_count) {
@@ -97,7 +98,7 @@ export class DOMListHydrator<T> {
         PatchVNode(items[index], node)
         PatchIndex(element, index)
 
-        Apply(element as HTMLElement, this._template_analysis!)
+        ApplyGroup(element as HTMLElement, this._group!)
 
         fragment.appendChild(element)
       }
@@ -136,7 +137,7 @@ export class DOMListHydrator<T> {
       PatchVNode(items[index], current_node)
       PatchIndex(current_element, index)
 
-      Apply(current_element, this._template_analysis!)
+      ApplyGroup(current_element, this._group!)
 
       fragment.appendChild(current_element)
     }
@@ -173,7 +174,7 @@ export class DOMListHydrator<T> {
 
     this._counter.DirectSet(index)
 
-    Apply(dom, this._template_analysis!)
+    ApplyInstructions(dom, this._instructions!)
   }
 
   private Schedule() {
