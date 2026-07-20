@@ -8,16 +8,16 @@ import { Scheduler } from "@/core/scheduler/class.scheduler"
 import { ClearSubscriptions } from "@/core/interpretator/dom/subscriptions/dom.manager"
 import { AbstractStateful } from "@/core/stateful/abstract.stateful"
 import { StatefulDependentOf } from "@/core/stateful/class.dependent-of"
-import { Analyze, Apply, KindToInstructionMap } from "@/core/interpretator/dom/analyzer/class.analyzer"
+import { Analyze, Apply, GroupByPath, InstructionGroup } from "@/core/interpretator/dom/analyzer/class.analyzer"
 
 export class DOMListHydrator<T> {
   private _pool: HTMLElement[] = []
 
   private _template: HTMLElement | null = null
   private _template_vnode: VNode | null = null
-  private _template_analysis: KindToInstructionMap | null = null
+  private _template_analysis: InstructionGroup | null = null
 
-  private _selection: AbstractStateful<T>[] = []
+  private _selection: Map<number, AbstractStateful<T>> = new Map()
   private _counter: AbstractStateful<number> = new Stateful(0)
 
   private _flushing: boolean = false
@@ -26,7 +26,8 @@ export class DOMListHydrator<T> {
     Clear: new Set<{ Value: AbstractStateful<T>[] }>(),
     Update: new Map<number, AbstractStateful<T>>(),
     Replace: new Set<{ Value: AbstractStateful<T>[] }>(),
-    Swap: new Set<{ From: number, To: number }>()
+    Swap: new Set<{ From: number, To: number }>(),
+    Select: new Map<number, AbstractStateful<T>>()
   }
 
   private PrepareHTMLTemplateFromCurrentVNode(): void {
@@ -36,7 +37,9 @@ export class DOMListHydrator<T> {
 
       this._template_vnode = this._farbic(row, index)
       this._template = Transform(this._template_vnode!)
-      this._template_analysis = Analyze(this._template_vnode)
+      this._template_analysis = GroupByPath(
+        Analyze(this._template_vnode)
+      )
     }
   }
 
@@ -141,7 +144,7 @@ export class DOMListHydrator<T> {
     this._container.appendChild(fragment)
   }
 
-  private Select(items: AbstractStateful<T>[]): void {
+  private Select(item: AbstractStateful<T>, index: number): void {
     this._selection.forEach(item => {
       const node = GetVNodeFrom(item)
       const dom = GetDOMFrom(item)
@@ -153,18 +156,16 @@ export class DOMListHydrator<T> {
       }
     })
 
-    items.forEach(item => {
-      const node = GetVNodeFrom(item)
-      const dom = GetDOMFrom(item)
+    const node = GetVNodeFrom(item)
+    const dom = GetDOMFrom(item)
 
-      const select = node.Properties['m-select']
+    const select = node.Properties['m-select']
 
-      if (select !== undefined) {
-        select(dom)
-      }
-    })
+    if (select !== undefined) {
+      select(dom)
+    }
 
-    this._selection = items
+    this._selection.set(index, item)
   }
 
   private Update(item: AbstractStateful<T>, index: number): void {
@@ -192,7 +193,9 @@ export class DOMListHydrator<T> {
     this._queues.Add.forEach(event => this.Add(event.Value))
     this._queues.Swap.forEach(event => this.Swap(event.From, event.To))
     this._queues.Update.forEach((event, index) => this.Update(event, index))
+    this._queues.Select.forEach((event, index) => this.Select(event, index))
 
+    this._queues.Select.clear()
     this._queues.Clear.clear()
     this._queues.Add.clear()
     this._queues.Replace.clear()
@@ -207,7 +210,8 @@ export class DOMListHydrator<T> {
 
   public Hydrate(): void {
     this._items.Selected.Listen(event => {
-      this.Select(event.Value)
+      this._queues.Select.set(event.Indexes[0], event.Value[0])
+      this.Schedule()
     })
 
     this._items.Added.Listen(event => {

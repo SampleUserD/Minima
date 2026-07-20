@@ -6,8 +6,7 @@ import { Stateful } from "@/core/stateful/class.stateful"
 
 export interface Instruction {
   URL: string,
-  Path: number[],
-  Target: Map<string, HTMLElement[]>
+  Path: number[]
 }
 
 export interface TextInstruction extends Instruction {
@@ -31,6 +30,12 @@ export type KindToInstructionMap = {
   FixedSlot: SlotInstruction[],
 }
 
+export type InstructionGroup = {
+  Group: Map<string, KindToInstructionMap>,
+  Paths: Map<string, number[]>,
+  Targets: HTMLElement[]
+}
+
 export function Analyze(node: VNode, path: number[] = []): KindToInstructionMap {
   const instructions: KindToInstructionMap = {
     Text: [],
@@ -43,9 +48,8 @@ export function Analyze(node: VNode, path: number[] = []): KindToInstructionMap 
     if (key === M_TEXT_ATTRIBUTE) {
       instructions.Text.push({
         URL: path.join('/'),
+        Getter: value,
         Path: [...path],
-        Target: new Map(),
-        Getter: value
       })
 
       continue
@@ -56,7 +60,6 @@ export function Analyze(node: VNode, path: number[] = []): KindToInstructionMap 
         URL: path.join('/'),
         Path: [...path],
         Getter: value,
-        Target: new Map(),
         Name: key.slice(M_SLOT_FIX_ATRRIBUTE.length + 1)
       })
 
@@ -68,7 +71,6 @@ export function Analyze(node: VNode, path: number[] = []): KindToInstructionMap 
         URL: path.join('/'),
         Path: [...path],
         Getter: value,
-        Target: new Map(),
         Name: key.slice(M_SLOT_ATRRIBUTE.length + 1)
       })
     }
@@ -80,7 +82,6 @@ export function Analyze(node: VNode, path: number[] = []): KindToInstructionMap 
         URL: path.join('/'),
         Path: [...path],
         Callback: value,
-        Target: new Map(),
         Name: name
       })
     }
@@ -104,6 +105,58 @@ export function Analyze(node: VNode, path: number[] = []): KindToInstructionMap 
   return instructions
 }
 
+export function GroupByPath(instructions: KindToInstructionMap): InstructionGroup {
+  const groups: InstructionGroup = {
+    Group: new Map(),
+    Targets: [],
+    Paths: new Map()
+  }
+
+  const create = (instruction: Instruction) => {
+    let group = groups.Group.get(instruction.URL)
+
+    if (group === undefined) {
+      group = {
+        Text: [],
+        Slot: [],
+        Events: [],
+        FixedSlot: []
+      }
+
+      groups.Group.set(instruction.URL, group)
+      groups.Paths.set(instruction.URL, instruction.Path)
+    }
+
+    return group
+  }
+
+  for (const instruction of instructions.Events) {
+    const group = create(instruction)
+
+    group.Events.push(instruction)
+  }
+
+  for (const instruction of instructions.FixedSlot) {
+    const group = create(instruction)
+
+    group.FixedSlot.push(instruction)
+  }
+
+  for (const instruction of instructions.Slot) {
+    const group = create(instruction)
+
+    group.Slot.push(instruction)
+  }
+
+  for (const instruction of instructions.Text) {
+    const group = create(instruction)
+
+    group.Text.push(instruction)
+  }
+
+  return groups
+}
+
 export function GetChildByPath(element: HTMLElement, path: number[]): HTMLElement | null {
   let target: HTMLElement | null = element
 
@@ -112,26 +165,6 @@ export function GetChildByPath(element: HTMLElement, path: number[]): HTMLElemen
   }
 
   return target
-}
-
-export function ApplyInstruction<T extends Instruction>(element: HTMLElement, instruction: T, callback: (e: HTMLElement, v: T) => void) {
-  let targets = instruction.Target.get(instruction.URL)
-
-  if (targets === undefined) {
-    targets = []
-    instruction.Target.set(instruction.URL, targets)
-  }
-
-  const index = GetIndexFrom(element)
-  let target = targets[index]
-
-  const exists = target === undefined || target === null
-
-  if (exists) {
-    target = GetChildByPath(element, instruction.Path)!
-  }
-
-  callback(target, instruction)
 }
 
 export const EVENT_INSTRUCTION = (target: HTMLElement, instruction: EventInstruction) => {
@@ -172,20 +205,30 @@ export const TEXT_INSTRUCTION = (target: HTMLElement, instruction: TextInstructi
   target.textContent = instruction.Getter()
 }
 
-export function Apply(element: HTMLElement, instructions: KindToInstructionMap): void {
-  for (const instruction of instructions.Events) {
-    ApplyInstruction(element, instruction, EVENT_INSTRUCTION)
-  }
+export function Apply(element: HTMLElement, group: InstructionGroup): void {
+  const index = GetIndexFrom(element)
 
-  for (const instruction of instructions.FixedSlot) {
-    ApplyInstruction(element, instruction, FIXED_SLOT_INSTRUCTION)
-  }
+  for (const [path, instructions] of group.Group.entries()) {
+    let target = group.Targets[index]
 
-  for (const instruction of instructions.Slot) {
-    ApplyInstruction(element, instruction, SLOT_INSTRUCTION)
-  }
+    if (target === undefined) {
+      target = GetChildByPath(element, group.Paths.get(path)!)!
+    }
 
-  for (const instruction of instructions.Text) {
-    ApplyInstruction(element, instruction, TEXT_INSTRUCTION)
+    for (const instruction of instructions.Events) {
+      EVENT_INSTRUCTION(target, instruction)
+    }
+
+    for (const instruction of instructions.FixedSlot) {
+      FIXED_SLOT_INSTRUCTION(target, instruction)
+    }
+
+    for (const instruction of instructions.Slot) {
+      SLOT_INSTRUCTION(target, instruction)
+    }
+
+    for (const instruction of instructions.Text) {
+      TEXT_INSTRUCTION(target, instruction)
+    }
   }
 }
