@@ -4,14 +4,14 @@ import { RegisterSubscription } from "@/core/interpretator/dom/subscriptions/dom
 import { ApplyEvents, ClearEvents, EnsureGlobalListener } from "@/core/interpretator/dom/transform/transform.dom";
 import { Stateful } from "@/core/stateful/class.stateful";
 
-export const BIND_ATTRIBUTE_PREFIX = 'bind'
-export const FN_ATTRIBUTE_PREFIX = 'fn'
-export const FN_DEPS_ATTRIBUTE_PREFIX = 'fn-deps'
-export const M_TEXT_ATTRIBUTE = 'm-text'
-export const M_EX_ATTRIBUTE = 'm-ex'
-export const M_ON_ATTRIBUTE = 'm-on'
-export const M_SLOT_ATRRIBUTE = 'm-slot'
-export const M_SLOT_FIX_ATRRIBUTE = 'm-slot-fix'
+const BIND_ATTRIBUTE_PREFIX = 'bind'
+const FN_ATTRIBUTE_PREFIX = 'fn'
+const FN_DEPS_ATTRIBUTE_PREFIX = 'fn-deps'
+const M_TEXT_ATTRIBUTE = 'm-text'
+const M_EX_ATTRIBUTE = 'm-ex'
+const M_ON_ATTRIBUTE = 'm-on'
+const M_SLOT_ATRRIBUTE = 'm-slot'
+const M_SLOT_FIX_ATRRIBUTE = 'm-slot-fix'
 
 function HydrateTextAttribute(node: VNode, element: HTMLElement, key: string) {
   if (key === M_TEXT_ATTRIBUTE) {

@@ -1,0 +1,8 @@
+export const BIND_ATTRIBUTE_PREFIX = 'bind'
+export const FN_ATTRIBUTE_PREFIX = 'fn'
+export const FN_DEPS_ATTRIBUTE_PREFIX = 'fn-deps'
+export const M_TEXT_ATTRIBUTE = 'm-text'
+export const M_EX_ATTRIBUTE = 'm-ex'
+export const M_ON_ATTRIBUTE = 'm-on'
+export const M_SLOT_ATRRIBUTE = 'm-slot'
+export const M_SLOT_FIX_ATRRIBUTE = 'm-slot-fix'

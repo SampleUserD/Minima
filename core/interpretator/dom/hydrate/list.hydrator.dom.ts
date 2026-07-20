@@ -8,16 +8,18 @@ import { Scheduler } from "@/core/scheduler/class.scheduler"
 import { ClearSubscriptions } from "@/core/interpretator/dom/subscriptions/dom.manager"
 import { AbstractStateful } from "@/core/stateful/abstract.stateful"
 import { StatefulDependentOf } from "@/core/stateful/class.dependent-of"
-import { Analyze, ApplyGroup, ApplyInstructions, GroupByPath, InstructionGroup, KindToInstructionMap } from "@/core/interpretator/dom/analyzer/class.analyzer"
+import { Template } from "@/core/interpretator/dom/hydrate/cache/types.template"
+import { WriteAnalyzeForIn } from "@/core/interpretator/dom/hydrate/analyzer/class.analyzer"
+import { ApplyFor } from "@/core/interpretator/dom/hydrate/applier/class.applier"
+import { Pool } from "@/core/interpretator/dom/hydrate/cache/class.pool"
+import { Query } from "@/core/interpretator/dom/hydrate/cache/class.query"
 
 export class DOMListHydrator<T> {
-  private _pool: HTMLElement[] = []
+  private _pool: Pool | null = null
+  private _template: Template | null = null
 
-  private _template: HTMLElement | null = null
-  private _template_vnode: VNode | null = null
-
-  private _instructions: KindToInstructionMap | null = null
-  private _group: InstructionGroup | null = null
+  private _query: Query = new Query()
+  private _templateQuery: Query = new Query()
 
   private _selection: Map<number, AbstractStateful<T>> = new Map()
   private _counter: AbstractStateful<number> = new Stateful(0)
@@ -32,15 +34,40 @@ export class DOMListHydrator<T> {
     Select: new Map<number, AbstractStateful<T>>()
   }
 
+  private BatchUpdateFrom(index: number, container: HTMLElement | DocumentFragment) {
+    this._counter.DirectSet(index - 1)
+    const elements = this._query.Query('[data-mi]', container)
+    const batch_size = this._templateQuery.Query('[data-mi]', this._template.Element).length
+
+    let current_index = 0
+
+    for (const node of elements) {
+      this._counter.DirectSet(Math.floor(current_index / batch_size))
+
+      ApplyFor(node)
+
+      current_index++
+    }
+  }
+
   private PrepareHTMLTemplateFromCurrentVNode(): void {
-    if (this._template == null || this._template_vnode == null || this._instructions == null) {
+    if (this._template == null) {
       const row = new StatefulDependentOf(this._counter, index => this._items.Value[index].Value)
       const index = new StatefulDependentOf(this._counter, index => index)
 
-      this._template_vnode = this._farbic(row, index)
-      this._template = Transform(this._template_vnode!)
-      this._instructions = Analyze(this._template_vnode)
-      this._group = GroupByPath(this._instructions)
+      const node = this._farbic(row, index)
+      const element = Transform(node)
+
+      this._template = {
+        Node: node,
+        Element: element
+      }
+
+      this._pool = new Pool(this._template)
+
+      WriteAnalyzeForIn(node)
+
+      this._templateQuery.Query('[data-mi]', element)
     }
   }
 
@@ -48,10 +75,10 @@ export class DOMListHydrator<T> {
     const previous = this._counter.Value
 
     this._counter.DirectSet(to_index)
-    ApplyInstructions(this._container.children[from_index] as HTMLElement, this._instructions!)
+    ApplyFor(this._container.children[from_index] as HTMLElement)
 
     this._counter.DirectSet(from_index)
-    ApplyInstructions(this._container.children[to_index] as HTMLElement, this._instructions!)
+    ApplyFor(this._container.children[to_index] as HTMLElement)
 
     this._counter.DirectSet(previous)
   }
@@ -64,7 +91,10 @@ export class DOMListHydrator<T> {
 
   private Clear(items: AbstractStateful<T>[]): void {
     for (const item of items) {
-      this._pool.push(GetDOMFrom(item))
+      this._pool.Push({
+        Node: this._template.Node,
+        Element: GetDOMFrom(item)
+      })
     }
 
     this._container.innerHTML = String()
@@ -79,29 +109,20 @@ export class DOMListHydrator<T> {
 
     const common_count = Math.min(children_count, data_count)
 
-    for (let index = 0; index < common_count; index++) {
-      this._counter.DirectSet(index)
-
-      ApplyGroup(this._container.children[index] as HTMLElement, this._group!)
-    }
-
     if (data_count > children_count) {
       const fragment = document.createDocumentFragment()
 
       for (let index = common_count; index < data_count; index++) {
-        this._counter.DirectSet(index)
+        const template = this._pool.Get()
 
-        const element = this._pool.length > 0 ? this._pool.pop()! : this._template!.cloneNode(true) as HTMLElement
-        const node = this._template_vnode!
+        PatchDOM(items[index], template.Element)
+        PatchVNode(items[index], template.Node)
+        PatchIndex(template.Element, index)
 
-        PatchDOM(items[index], element)
-        PatchVNode(items[index], node)
-        PatchIndex(element, index)
-
-        ApplyGroup(element as HTMLElement, this._group!)
-
-        fragment.appendChild(element)
+        fragment.appendChild(template.Element)
       }
+
+      this.BatchUpdateFrom(0, fragment)
 
       this._container.appendChild(fragment)
     }
@@ -113,11 +134,22 @@ export class DOMListHydrator<T> {
         if (last_element) {
           ClearSubscriptions(last_element)
 
-          this._pool.push(last_element)
+          this._pool.Push({
+            Node: this._template.Node,
+            Element: last_element
+          })
+
           last_element.remove()
         }
       }
     }
+
+    this._container.style.visibility = 'hidden'
+
+    this._query.Invalidate('[data-mi]')
+    this.BatchUpdateFrom(0, this._container)
+
+    this._container.style.visibility = 'visible'
   }
 
   private Add(items: AbstractStateful<T>[]): void {
@@ -126,21 +158,21 @@ export class DOMListHydrator<T> {
     const fragment = document.createDocumentFragment()
 
     for (let index = 0; index < items.length; index++) {
-      this._counter.DirectSet(this._items.Length - items.length + index)
+      const current_node = this._template.Node
+      const current_element = this._pool.Get()
 
-      const current_node = this._template_vnode!
-      const current_element = this._template!.cloneNode(true) as HTMLElement
-
-      PatchDOM(items[index], current_element)
-      PatchDOM(current_node, current_element)
+      PatchDOM(items[index], current_element.Element)
+      PatchDOM(current_node, current_element.Element)
 
       PatchVNode(items[index], current_node)
       PatchIndex(current_element, index)
 
-      ApplyGroup(current_element, this._group!)
-
-      fragment.appendChild(current_element)
+      fragment.appendChild(current_element.Element)
     }
+
+    this._query.Invalidate('[data-mi]')
+
+    this.BatchUpdateFrom(this._items.Length - items.length, fragment)
 
     this._container.appendChild(fragment)
   }
@@ -174,7 +206,7 @@ export class DOMListHydrator<T> {
 
     this._counter.DirectSet(index)
 
-    ApplyInstructions(dom, this._instructions!)
+    ApplyFor(dom)
   }
 
   private Schedule() {
@@ -230,6 +262,7 @@ export class DOMListHydrator<T> {
       this._queues.Replace.clear()
       this._queues.Swap.clear()
       this._queues.Update.clear()
+      this._queues.Replace.clear()
 
       this._queues.Replace.add(event)
       this.Schedule()

@@ -1,5 +1,5 @@
 import { VNode } from "@/core/adapters/type.v-node";
-import { BIND_ATTRIBUTE_PREFIX, FN_ATTRIBUTE_PREFIX } from "@/core/interpretator/dom/hydrate/hydrate.dom";
+import { BIND_ATTRIBUTE_PREFIX, FN_ATTRIBUTE_PREFIX } from "@/core/interpretator/dom/attributes/const.common";
 import { PatchDOM } from "@/core/interpretator/dom/patch.dom";
 import { Stateful } from "@/core/stateful/class.stateful";
 
