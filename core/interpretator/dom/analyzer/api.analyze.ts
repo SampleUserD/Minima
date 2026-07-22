@@ -1,8 +1,7 @@
 import { VNode } from "@/core/adapters/type.v-node"
-import { Analyzers, URLs } from "@/core/interpretator/dom/instructions/api.instructions"
+import { Analyzers } from "@/core/interpretator/dom/instructions/api.instructions"
 import { AnalyzisPath, AnalyzisResult } from "@/core/interpretator/dom/analyzer/type.analyze"
-import { Instructions } from "@/core/interpretator/dom/instructions/type.instructions"
-// import "@/core/interpretator/dom/embed/index"
+import "@/core/interpretator/dom/embedded/index"
 
 function Traverse(node: VNode, callback: (node: VNode, path: AnalyzisPath) => void, path: AnalyzisPath = []) {
   callback(node, path)

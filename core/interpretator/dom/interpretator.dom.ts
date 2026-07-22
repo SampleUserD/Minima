@@ -1,20 +1,24 @@
 import { VNode } from "@/core/adapters/type.v-node"
-import { DeepHydrate } from "@/core/interpretator/dom/hydrate/hydrate.dom"
-import { Transform } from "@/core/interpretator/dom/transform/transform.dom"
+import { Analyze } from "@/core/interpretator/dom/analyzer/api.analyze"
+import { Apply } from "@/core/interpretator/dom/applier/api.applier"
+import { Transform } from "@/core/interpretator/dom/transform/api.transform"
 import { Interpretator } from "@/core/interpretator/interface.interpretator"
 
-export class DOMInterpretator implements Interpretator {
-  public constructor(private _root: HTMLElement) { }
+export class DOMInterpretator extends Interpretator {
+  public constructor(private _container: HTMLElement) {
+    super()
+  }
 
   public Render(node: VNode): void {
+    const instructions = Analyze(node)
     const element = Transform(node)
 
-    DeepHydrate(node, element)
+    Apply(element, instructions)
 
-    this._root.appendChild(element)
+    this._container.appendChild(element)
   }
 
   public Delete(node: VNode): void {
-    this._root.innerHTML = String()
+    this._container.innerHTML = String()
   }
 }

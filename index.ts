@@ -1,4 +1,4 @@
-import { Interpretator, DOM } from "@/core/interpretator"
+import { Interpretator, DOM, Slots } from "@/core/interpretator"
 import { Services } from "@/core/services"
 import { jsx, jsxs } from "@/runtime/jsx-runtime"
 import { Singular, ArrayOf, Abstract, DependentOf } from "@/core/stateful"
@@ -20,6 +20,7 @@ export {
   Singular,
   ArrayOf,
   Interpretator,
+  Slots,
   DOM,
   jsx,
   jsxs
