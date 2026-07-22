@@ -1,3 +1,4 @@
+import "@/core/interpretator/dom/embedded/logic.deps"
 import "@/core/interpretator/dom/embedded/logic.text"
 import "@/core/interpretator/dom/embedded/logic.event"
 import "@/core/interpretator/dom/embedded/logic.stick"

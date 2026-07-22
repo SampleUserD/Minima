@@ -2,6 +2,7 @@ import { Analyzer, AnalyzisPath } from "@/core/interpretator/dom/analyzer/type.a
 import { Applier } from "@/core/interpretator/dom/applier/type.applier"
 import { Handler, Instructions, Resource } from "@/core/interpretator/dom/instructions/type.instructions"
 import { ResourceRegistry } from "@/core/interpretator/dom/resources/class.resource"
+import { AbstractState } from "@/core/state/abstract.state"
 
 const TargetCache: Map<HTMLElement, Map<string, HTMLElement>> = new Map()
 
@@ -13,6 +14,8 @@ export const URL_SIZE = 1
 export const SIZES = 3
 
 export const URLs: ResourceRegistry<string> = new ResourceRegistry()
+export const Records: ResourceRegistry<Record<string, any>> = new ResourceRegistry()
+export const States: ResourceRegistry<AbstractState<any>> = new ResourceRegistry()
 export const Strings: ResourceRegistry<string> = new ResourceRegistry()
 export const Functions: ResourceRegistry<Function> = new ResourceRegistry()
 

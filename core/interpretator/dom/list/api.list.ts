@@ -21,7 +21,6 @@ export class ListOrchestrator<T> {
   private _templateInstructions!: AnalyzisResult
 
   private _index: State<number> = new State(0)
-  private _versions: Version[] = []
 
   private _flushing: boolean = false
   private _selection: Map<number, T> = new Map()

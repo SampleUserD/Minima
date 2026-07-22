@@ -4,6 +4,8 @@ import { Handler, Instructions } from "@/core/interpretator/dom/instructions/typ
 import { Functions, GetChild, GetResource, GetResourcesSize, Pack, Register, Strings } from "@/core/interpretator/dom/instructions/api.instructions"
 import { RegisterListener } from "@/core/interpretator/dom/events/api.ensure"
 
+const Settled: WeakMap<HTMLElement, boolean> = new WeakMap()
+
 function Analyze(node: VNode, path: AnalyzisPath, handler: Handler) {
   const handlers: [Handler, Handler][] = []
 
@@ -23,12 +25,18 @@ function Apply(node: HTMLElement, offset: number, data: Instructions) {
   const rsize = GetResourcesSize(offset, data)
   const child = GetChild(node, offset, data)
 
+  if (Settled.has(child)) {
+    return
+  }
+
   for (let index = 0; index < rsize; index += 2) {
     const name = Strings.Get(GetResource(index, offset, data))
     const listener = Functions.Get(GetResource(index + 1, offset, data))
 
     RegisterListener(child, name, listener as any)
   }
+
+  Settled.set(child, true)
 }
 
 export const HANDLER_ID = Register(Analyze, Apply)

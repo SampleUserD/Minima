@@ -1,12 +1,13 @@
 import { Interpretator, DOM, Slots } from "@/core/interpretator"
 import { Services } from "@/core/services"
 import { jsx, jsxs } from "@/runtime/jsx-runtime"
-import { Singular, ArrayOf, Abstract, DependentOf } from "@/core/stateful"
+import { Singular, ArrayOf, Abstract, DependentOf } from "@/core/state"
 
 export default {
   jsx,
   jsxs,
   Services,
+  Slots,
   DOM,
   ArrayOf,
   Singular,

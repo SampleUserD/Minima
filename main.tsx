@@ -1,4 +1,3 @@
-import { Stateful } from '@/core/stateful/class.stateful'
 import minima, { Abstract, jsx } from '@/index'
 
 let ID = 1
@@ -80,16 +79,14 @@ function buildData(count = 1000) {
 }
 
 function App() {
-  const rows = new minima.ArrayOf<{ id: number, label: string }>([], item => new Stateful(item))
-  const selected = new minima.Singular<number | null>(null)
-  const counter = new minima.Singular<number>(0)
+  const rows = new minima.ArrayOf<{ id: number, label: string }>([])
 
   function create1000th() {
-    rows.Replace(...buildData(1000))
+    rows.Set(buildData(1000))
   }
 
   function create10000th() {
-    rows.Replace(...buildData(10000))
+    rows.Set(buildData(10000))
   }
 
   function append1000th() {
@@ -98,11 +95,9 @@ function App() {
 
   function update10th() {
     for (let i = 0; i < rows.Length; i += 10) {
-      rows.Update(i, v => {
-        v.label += ' !!!'
+      rows.Value[i].label += ' !!!'
 
-        return v
-      })
+      rows.Update(i, rows.Value[i])
     }
   }
 
@@ -117,11 +112,11 @@ function App() {
   }
 
   function select_row(index) {
-    rows.SelectIndex(index)
+    rows.SelectBy(index)
   }
 
   function delete_row(id) {
-    const idx = rows.Value.findIndex(row => row.Value.id == id)
+    const idx = rows.Value.findIndex(row => row.id == id)
 
     rows.Remove(idx)
   }
@@ -131,7 +126,7 @@ function App() {
       <div class="jumbotron">
         <div class="row">
           <div class="col-md-6">
-            <h1>Minima performance {counter}</h1>
+            <h1>Minima performance</h1>
           </div>
           <div class="col-md-6">
             <div class="row">
@@ -147,19 +142,20 @@ function App() {
       </div>
       <table class="table table-hover table-striped test-data">
         <tbody
-          each={rows}
-          item={
+          m-for={() => rows}
+          m-each={
             (row: Abstract<{ id: number, label: string }>, index: Abstract<number>) => {
               return (
                 <tr
                   m-select={(element: HTMLElement) => element.className = "danger"}
                   m-unselect={(element: HTMLElement) => element.className = String()}>
-                  <td class="col-md-1" m-text={() => row.Value.id}></td>
+                  <td class="col-md-1" m-text={() => row.Value.id} m-deps={{ 'text': [row] }}></td>
                   <td class="col-md-4">
                     <a
                       m-slot-index={() => index.Value}
                       onclick={event => select_row(event.target.slots.index)}
-                      m-text={() => row.Value.label}>
+                      m-text={() => row.Value.label}
+                      m-deps={{ 'text': [row] }}>
                     </a>
                   </td>
                   <td class="col-md-1">

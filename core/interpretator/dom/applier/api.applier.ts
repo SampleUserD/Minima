@@ -1,4 +1,4 @@
-import { Appliers, GetHandler, GetTotalSize } from "@/core/interpretator/dom/instructions/api.instructions";
+import { Appliers, GetChild, GetHandler, GetTotalSize } from "@/core/interpretator/dom/instructions/api.instructions";
 import { AnalyzisResult } from "@/core/interpretator/dom/analyzer/type.analyze";
 import "@/core/interpretator/dom/embedded/index"
 
